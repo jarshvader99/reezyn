@@ -51,6 +51,7 @@ class SpeechConfig:
 @dataclass(slots=True)
 class NarrationConfig:
     max_words: int = 42
+    max_sentences: int = 2  # 0 reads every sentence in the thought
     debounce_ms: int = 700
     stale_after_s: float = 9.0
     min_gap_s: float = 0.35
@@ -94,6 +95,7 @@ class Config:
             f"model = {quote(s.model)}\n\n"
             "[narration]\n"
             f"max_words = {n.max_words}\n"
+            f"max_sentences = {n.max_sentences}\n"
             f"debounce_ms = {n.debounce_ms}\n"
             f"stale_after_s = {n.stale_after_s:.1f}\n"
             f"min_gap_s = {n.min_gap_s:.2f}\n"
