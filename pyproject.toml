@@ -9,7 +9,6 @@ dependencies = [
     "numpy>=1.26",
     "rumps>=0.4.0",
     "sounddevice>=0.5",
-    "soundfile>=0.12",
 ]
 
 [project.scripts]

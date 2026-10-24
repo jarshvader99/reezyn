@@ -17,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
-from ..events import Event, make_fingerprint
+from ..events import Event
 from ..transcripts import JsonlTail
 
 UUID = re.compile(

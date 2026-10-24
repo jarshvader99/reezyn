@@ -5,16 +5,15 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import shutil
 import sys
 import time
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from . import __version__
-from .config import CONFIG_ENV, app_home, load_config
+from .config import app_home, load_config
 from .events import Event
 from .installers import (
     hook_command,

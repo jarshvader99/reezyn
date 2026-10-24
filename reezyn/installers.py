@@ -9,7 +9,6 @@ import shutil
 import sys
 import tempfile
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
@@ -237,11 +236,3 @@ def _atomic_write(path: Path, text: str) -> None:
         os.replace(temp, path)
     finally:
         temp.unlink(missing_ok=True)
-
-
-def backup_name(path: Path) -> Path:
-    return path.with_name(path.name + ".reezyn.bak")
-
-
-def timestamp() -> str:
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")

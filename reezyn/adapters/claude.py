@@ -7,11 +7,10 @@ transcript recovers the reasoning that led to the call.
 
 from __future__ import annotations
 
-import time
 from pathlib import Path
 from typing import Any
 
-from ..events import Event, make_fingerprint
+from ..events import Event
 from ..transcripts import JsonlTail
 
 # Enough to include the last few turns without re-reading a long session.
