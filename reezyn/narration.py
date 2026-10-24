@@ -241,6 +241,11 @@ def compose_narration(
     ordered = sorted(events, key=lambda item: item.ts)
     if not ordered:
         return None
+    # If two agent sessions overlap, stay with the most recently active one
+    # instead of cutting between unrelated tasks.
+    latest_session = ordered[-1].session_id
+    if latest_session:
+        ordered = [event for event in ordered if event.session_id == latest_session]
     # Staleness is relative to the newest event in the burst, not to the end of
     # the previous (possibly long) utterance. A hard age cap still prevents a
     # laptop waking from sleep and narrating yesterday's work.
@@ -429,6 +434,7 @@ class Narrator:
         self._recent: deque[str] = deque(maxlen=6)
         self._last_error = ""
         self._error_until = 0.0
+        self._cancel_current = False
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -464,6 +470,7 @@ class Narrator:
                 return
             self._paused = True
             self._pending.clear()
+            self._cancel_current = self._speaking
         self._stop_speech()
         self._notify()
 
@@ -472,6 +479,7 @@ class Narrator:
             if not self._paused:
                 return
             self._paused = False
+            self._cancel_current = False
         self._wake.set()
         self._notify()
 
@@ -485,6 +493,7 @@ class Narrator:
     def skip(self) -> None:
         with self._lock:
             self._pending.clear()
+            self._cancel_current = self._speaking
         self._stop_speech()
         self._notify()
 
@@ -547,10 +556,14 @@ class Narrator:
             with self._lock:
                 self._current = narration.text
                 error_blocked = time.monotonic() < self._error_until
+                cancelled = self._cancel_current
+                self._cancel_current = False
             self._notify()
 
             ok = True
-            if not error_blocked and not self._stop.is_set():
+            if cancelled:
+                ok = False
+            elif not error_blocked and not self._stop.is_set():
                 log.info("speaking: %s", narration.text)
                 try:
                     result = self._speak(narration.text)

@@ -25,6 +25,7 @@ class Event:
         if not self.fingerprint:
             self.fingerprint = make_fingerprint(
                 self.agent,
+                self.session_id,
                 self.kind,
                 self.text if self.kind == "reasoning" else self.tool_name,
                 "" if self.kind == "reasoning" else stable_tool_key(self.tool_input),
