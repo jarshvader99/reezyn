@@ -2,8 +2,8 @@
 
 Reezyn is a calm, local narrator for the reasoning behind coding-agent tool
 calls. It lives in the macOS menu bar, listens to Claude Code, Codex CLI, Gemini
-CLI, and generic event streams, and speaks short excerpts of the agent's own
-thoughts in an open-source Kokoro voice.
+CLI, Cursor, OpenCode, and generic event streams, and speaks short excerpts of
+the agent's own thoughts in an open-source Kokoro voice.
 
 It does not summarize with an LLM, call a cloud API, or send transcripts
 anywhere. Reezyn reads the agent's local session log, picks a short reasoning
@@ -92,6 +92,30 @@ shell commands, patches, MCP calls, and web searches.
 Codex sometimes stores reasoning as opaque `encrypted_content`. Reezyn skips
 that and uses the tool action instead.
 
+### Cursor
+
+No install step. Reezyn watches Cursor Agent transcripts under
+`~/.cursor/projects/<project>/agent-transcripts/<session>/*.jsonl` (or
+`$CURSOR_PROJECTS_DIR`). It reads assistant `thinking`/`reasoning` blocks,
+commentary, and `tool_use` / `tool_call` blocks. Text-only final answers are not
+read back to you.
+
+Cursor's separate CLI chat `store.db` is not read yet; the JSONL transcript is
+watched when Cursor writes it.
+
+### OpenCode
+
+No install step. Reezyn reads OpenCode's local SQLite database read-only at
+`${OPENCODE_DATA:-${XDG_DATA_HOME:-$HOME/.local/share}/opencode}/opencode.db`.
+It supports the current v2 `session_message` schema (assistant `content` blocks
+of `reasoning`, `text`, and `tool`) and the older `message` + `part` schema.
+Recent assistant rows are re-scanned briefly so streamed text and tool state
+updates are picked up; WAL data is read without copying or modifying the
+database.
+
+Start Reezyn before or during the OpenCode session. Existing history is not
+replayed beyond the short recent window.
+
 ### Anything else
 
 Two generic paths are available:
@@ -135,7 +159,7 @@ call instead.
 - **Voice** — Heart, Michael, Bella, George, or Emma.
 - **Pace** — Calm (0.84×), Natural (0.94×), Brisk (1.04×).
 - **Install agent hooks** — writes the Claude or Gemini integration after a
-  confirmation dialog.
+  confirmation dialog. Codex, Cursor, and OpenCode are watched automatically.
 - **Download voice model** — appears while the model is missing.
 - **Simulate a session** — a local demo through the real pipeline.
 - **Open Reezyn folder** — `~/.reezyn`.
@@ -165,6 +189,8 @@ dedupe_s = 30.0
 claude = true
 codex = true
 gemini = true
+cursor = true
+opencode = true
 ```
 
 The menu writes voice and pace changes back here. Other edits take effect when
@@ -219,7 +245,7 @@ uv run python -m compileall -q reezyn
 ```
 
 The test suite covers speech cleanup and excerpting, burst coalescing and
-deduplication, all three agent formats, hook installers, the cross-process
+deduplication, all five agent formats, hook installers, the cross-process
 spool, and an end-to-end Claude hook → fake speaker run. The real Kokoro engine
 and menu bar are exercised separately with `uv run reezyn` and
 `uv run reezyn simulate`.
@@ -228,12 +254,12 @@ Layout:
 
 ```
 reezyn/
-  adapters/      Claude hooks, Codex rollouts, Gemini hooks
+  adapters/      Claude, Codex, Gemini, Cursor, and OpenCode event sources
   cli.py         command surface
   menu.py        rumps menu-bar app
   narration.py   excerpting, tool descriptions, coalescing queue
   service.py     adapter → queue wiring
-  speech         (tts.py) Kokoro setup, streaming playback, interruption
+  tts.py         Kokoro setup, streaming playback, interruption
   spool.py       cross-process event handoff
   installers.py  backed-up hook install/uninstall
 ```
@@ -246,7 +272,9 @@ reezyn/
 - Codex encrypted reasoning cannot be read.
 - Gemini transcript formats can drift; the extractor is intentionally tolerant
   but may fall back to tool descriptions.
-- Cursor and OpenCode do not have first-class adapters yet. Their local
-  transcripts can be bridged through `reezyn ingest`.
+- Cursor CLI's separate chat `store.db` is not read yet; only Cursor's agent
+  JSONL transcript is watched.
+- OpenCode is read from its SQLite schema, which can drift. Current v2 and the
+  older message/part shape are supported; unknown block types are ignored.
 - Reezyn expects the menu app to be running. Hooks are fast and fail silently;
   check `~/.reezyn/hook-errors.log` if events are not arriving.

@@ -49,7 +49,13 @@ def test_service_spools_a_claude_hook_into_speech(tmp_path, monkeypatch):
             min_gap_s=0,
             connectors=False,
         ),
-        agents=AgentsConfig(claude=True, codex=False, gemini=False),
+        agents=AgentsConfig(
+            claude=True,
+            codex=False,
+            gemini=False,
+            cursor=False,
+            opencode=False,
+        ),
     )
     speaker = FakeSpeaker()
     service = ReezynService(config, home, speaker=speaker)

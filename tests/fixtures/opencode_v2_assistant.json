@@ -1,0 +1,39 @@
+{
+  "agent": "build",
+  "model": {"id": "claude", "providerID": "anthropic"},
+  "time": {"created": 1792809168466, "streamed": 1792809189175, "completed": 1792809189216},
+  "content": [
+    {
+      "type": "reasoning",
+      "text": "The stale token is accepted because the refresh path never invalidates the previous version. I'll check the tests before editing.",
+      "time": {"created": 1792809172516, "completed": 1792809189160}
+    },
+    {
+      "type": "text",
+      "text": "I'll update the validation and rerun the auth suite."
+    },
+    {
+      "type": "tool",
+      "id": "call-1",
+      "name": "read",
+      "state": {
+        "status": "completed",
+        "input": {"path": "src/auth/session.ts"},
+        "content": [{"type": "text", "text": "..."}]
+      },
+      "time": {"created": 1792809188000, "ran": 1792809188500, "completed": 1792809188900}
+    },
+    {
+      "type": "tool",
+      "id": "call-2",
+      "name": "shell",
+      "state": {
+        "status": "completed",
+        "input": {"command": "npm test -- auth"},
+        "content": [{"type": "text", "text": "..."}]
+      },
+      "time": {"created": 1792809189000, "ran": 1792809189100, "completed": 1792809189200}
+    }
+  ],
+  "tokens": {"input": 1, "output": 1}
+}
