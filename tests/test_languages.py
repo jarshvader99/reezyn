@@ -16,6 +16,7 @@ from reezyn.narration import (
 from reezyn.tts import KokoroSpeaker
 
 SPANISH = PACKS["es"]
+FRENCH = PACKS["fr"]
 
 
 class _FakeEngine:
@@ -36,10 +37,12 @@ def test_voices_resolve_to_their_language_pack():
     assert pack_for_voice("af_heart") is PACKS["en"]
     assert pack_for_voice("ef_dora") is PACKS["es"]
     assert pack_for_voice("em_alex") is PACKS["es"]
+    assert pack_for_voice("ff_siwis") is PACKS["fr"]
     assert pack_for_voice("not-a-voice") is DEFAULT_PACK
-    assert {"ef_dora", "em_alex", "em_santa"} <= set(VOICES)
-    assert [pack.name for pack in LANGUAGES] == ["English", "Spanish"]
+    assert {"ef_dora", "em_alex", "em_santa", "ff_siwis"} <= set(VOICES)
+    assert [pack.name for pack in LANGUAGES] == ["English", "Spanish", "French"]
     assert SPANISH.kokoro_lang == "es"
+    assert FRENCH.kokoro_lang == "fr-fr"
 
 
 def test_spanish_cleaning_uses_spanish_words():
@@ -52,7 +55,9 @@ def test_spanish_cleaning_uses_spanish_words():
 
 
 def test_language_packs_cover_the_same_phrases():
-    assert set(PACKS["en"].phrases) == set(PACKS["es"].phrases)
+    keys = set(PACKS["en"].phrases)
+    for pack in PACKS.values():
+        assert set(pack.phrases) == keys
 
 
 def test_describe_tool_speaks_spanish():
@@ -77,6 +82,76 @@ def test_spanish_excerpt_keeps_accents_and_sentence_limits():
     assert select_excerpt(text, max_words=50, max_sentences=1, pack=SPANISH) == (
         "Voy a revisar la sesión."
     )
+
+
+def test_describe_tool_speaks_french():
+    assert describe_tool("Read", {"path": "session.ts"}, FRENCH) == "lire session.ts"
+    assert describe_tool("str_replace", {"path": "src/auth.ts"}, FRENCH) == (
+        "mettre à jour auth.ts"
+    )
+    assert describe_tool("code_search", {"pattern": "refreshToken"}, FRENCH) == (
+        "chercher « refreshToken »"
+    )
+    assert describe_tool("Bash", {"command": "pytest"}, FRENCH) == "lancer les tests"
+    assert describe_tool("WebSearch", {}, FRENCH) == "consulter la documentation"
+    assert describe_tool("write_todos", {}, FRENCH) == "mettre à jour le plan"
+
+
+def test_french_excerpt_keeps_accents_and_sentence_limits():
+    text = (
+        "Je vais inspecter la session. Ensuite je lancerai les tests. "
+        "Enfin je relirai le journal."
+    )
+    assert select_excerpt(text, max_words=50, max_sentences=2, pack=FRENCH) == (
+        "Je vais inspecter la session. Ensuite je lancerai les tests."
+    )
+    assert select_excerpt(text, max_words=50, max_sentences=1, pack=FRENCH) == (
+        "Je vais inspecter la session."
+    )
+
+
+def test_compose_speaks_tool_actions_in_french():
+    now = time.time()
+    events = [
+        Event(
+            agent="test",
+            kind="tool",
+            tool_name="Read",
+            tool_input={"path": "session.ts"},
+            ts=now,
+        ),
+        Event(
+            agent="test",
+            kind="tool",
+            tool_name="Bash",
+            tool_input={"command": "pytest"},
+            ts=now + 0.1,
+        ),
+    ]
+    narration = compose_narration(
+        events, NarrationConfig(connectors=False), now=now + 0.2, pack=FRENCH
+    )
+    assert narration is not None
+    assert narration.text == "Je vais lire session.ts, puis lancer les tests."
+
+
+def test_compose_joins_french_reasoning_and_action():
+    now = time.time()
+    events = [
+        Event(agent="test", kind="reasoning", text="Je vérifie.", ts=now),
+        Event(
+            agent="test",
+            kind="tool",
+            tool_name="Read",
+            tool_input={"path": "session.ts"},
+            ts=now + 0.1,
+        ),
+    ]
+    narration = compose_narration(
+        events, NarrationConfig(connectors=False), now=now + 0.2, pack=FRENCH
+    )
+    assert narration is not None
+    assert narration.text == "Je vérifie. Je vais lire session.ts."
 
 
 def test_compose_speaks_tool_actions_in_spanish():
@@ -124,7 +199,11 @@ def test_compose_joins_spanish_reasoning_and_action():
 
 
 def test_speaker_uses_the_language_of_the_selected_voice(tmp_path):
-    for voice, lang in (("em_alex", "es"), ("af_heart", "en-us")):
+    for voice, lang in (
+        ("em_alex", "es"),
+        ("ff_siwis", "fr-fr"),
+        ("af_heart", "en-us"),
+    ):
         speaker = KokoroSpeaker(tmp_path, SpeechConfig(voice=voice))
         engine = _FakeEngine()
         output: queue.Queue = queue.Queue()

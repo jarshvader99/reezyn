@@ -64,7 +64,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.set_defaults(voice=None, speed=None)
 
     start = sub.add_parser("start", help="Run the macOS menu-bar app")
-    start.add_argument("--voice", help="Voice id, e.g. af_heart or em_alex")
+    start.add_argument("--voice", help="Voice id, e.g. af_heart, em_alex, or ff_siwis")
     start.add_argument("--speed", type=float, help="Speech speed, 0.72–1.18")
 
     hook = sub.add_parser("hook", help="Receive one agent hook event on stdin")

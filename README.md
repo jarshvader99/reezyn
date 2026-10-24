@@ -172,9 +172,9 @@ call instead.
 - **Pause narration** — stops the current audio and clears the queue.
 - **Skip this thought** — interrupts the current utterance.
 - **Recent thoughts** — the last six spoken lines.
-- **Voice** — English (Heart, Michael, Bella, George, Emma) or Spanish (Dora,
-  Alex, Santa). The selected voice also selects the language Reezyn speaks
-  around the agent's words.
+- **Voice** — English (Heart, Michael, Bella, George, Emma), Spanish (Dora,
+  Alex, Santa), or French (Siwis). The selected voice also selects the language
+  Reezyn speaks around the agent's words.
 - **Pace** — Calm (0.84×), Natural (0.94×), Brisk (1.04×).
 - **Install agent hooks** — writes the Claude or Gemini integration after a
   confirmation dialog. Codex, Cursor, OpenCode, and Freebuff are watched
@@ -189,19 +189,21 @@ call instead.
 
 Reezyn speaks around the agent's own words, and the selected voice decides the
 language of that framing. English voices use English connectors and tool
-phrases; Spanish voices use Spanish. The agent's reasoning itself is not
-translated: if the agent thinks in Spanish it is read as Spanish, and if it
-thinks in English a Spanish voice will read English text with Spanish
-pronunciation.
+phrases; Spanish and French voices use theirs. The agent's reasoning itself is
+not translated: a Spanish or French voice will read English reasoning with that
+language's pronunciation, so ask the agent to think in the language you want to
+hear.
 
 Language behavior lives in `reezyn/languages.py`. Each `LanguagePack` supplies
 the Kokoro language, its voices, sentence and word rules, connectors, and tool
 phrases. Adding a language means adding one pack there; the menu, speaker, and
 narration queue resolve everything else from the selected voice. Kokoro ships
-voices for several more languages; English and Spanish have packs so far.
+voices for several more languages; English, Spanish, and French have packs so
+far.
 
 ```bash
 uv run reezyn start --voice em_alex   # start with Alex, Spanish
+uv run reezyn start --voice ff_siwis  # start with Siwis, French
 ```
 
 `--voice` is applied at startup, so stop the menu app before using it; while
@@ -327,9 +329,8 @@ reezyn/
 - Cursor CLI's separate chat `store.db` is not read yet; only Cursor's agent
   JSONL transcript is watched.
 - Reezyn does not translate. A language pack only frames the agent's own
-  words, so English reasoning read by a Spanish voice is pronounced, not
-  translated; ask the agent to think in Spanish if that is what you want to
-  hear.
+  words, so English reasoning read by a Spanish or French voice is pronounced,
+  not translated; ask the agent to think in the language you want to hear.
 - OpenCode is read from its SQLite schema, which can drift. Current v2 and the
   older message/part shape are supported; unknown block types are ignored.
 - Freebuff's `chat-messages.json` snapshot is a local UI cache and can change

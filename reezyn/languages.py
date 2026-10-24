@@ -132,6 +132,51 @@ SPANISH_PHRASES = {
     "action_suffix": " Estoy {action}.",
 }
 
+FRENCH_PHRASES = {
+    "reading_file": "lire {file}",
+    "reading_code": "lire le code",
+    "updating_file": "mettre à jour {file}",
+    "editing_files": "modifier les fichiers",
+    "writing_file": "écrire {file}",
+    "writing_a_file": "écrire un fichier",
+    "deleting_file": "supprimer {file}",
+    "deleting_a_file": "supprimer un fichier",
+    "notebook": "mettre à jour le carnet",
+    "searching_for": "chercher « {pattern} »",
+    "searching_codebase": "chercher dans le code",
+    "finding_files": "trouver les fichiers pertinents",
+    "checking_docs": "consulter la documentation",
+    "reading_docs": "lire la documentation",
+    "subagent": "confier ça à un sous-agent",
+    "plan": "mettre à jour le plan",
+    "screenshot": "regarder la capture d'écran",
+    "skill": "charger une compétence",
+    "question": "poser une question",
+    "followups": "proposer les prochaines étapes",
+    "lsp": "consulter le serveur de langage",
+    "rules": "vérifier les règles du projet",
+    "memory": "mettre à jour ses notes",
+    "using_mcp": "utiliser {server}",
+    "using_tool": "utiliser {tool}",
+    "mcp_server": "un serveur MCP",
+    "tool_noun": "l'outil",
+    "working": "travailler",
+    "running_tests": "lancer les tests",
+    "checking_code": "vérifier le code",
+    "checking_changes": "voir ce qui a changé",
+    "recent_history": "regarder l'historique récent",
+    "installing_dependencies": "installer les dépendances",
+    "looking_around": "explorer le projet",
+    "organizing_files": "organiser les fichiers",
+    "checking_endpoint": "vérifier une API",
+    "working_with_git": "travailler avec git",
+    "running_project": "lancer le projet",
+    "running_command": "lancer une commande",
+    "action_single": "Je vais {action}.",
+    "action_pair": "Je vais {first}, puis {second}.",
+    "action_suffix": " Je vais {action}.",
+}
+
 ENGLISH = LanguagePack(
     code="en",
     name="English",
@@ -192,7 +237,33 @@ SPANISH = LanguagePack(
     ),
 )
 
-LANGUAGES: tuple[LanguagePack, ...] = (ENGLISH, SPANISH)
+FRENCH = LanguagePack(
+    code="fr",
+    name="French",
+    kokoro_lang="fr-fr",
+    voices={"ff_siwis": "Siwis"},
+    connectors=("Bon,", "Alors,", "Donc,", "Voilà,"),
+    connector_starts=("bon", "alors", "donc", "voilà", "voila", "bref", "euh", "heu"),
+    sentence_split=re.compile(r"(?<=[.!?…])\s+"),
+    word=re.compile(r"[^\W_]+(?:['’][^\W_]+)*"),
+    phrases=FRENCH_PHRASES,
+    link_word="un lien",
+    and_word=" et ",
+    arrow_word=" vers ",
+    so_word=" donc ",
+    equals_word=" égal à ",
+    percent_word=" pour cent ",
+    command_word="la commande",
+    that_word="ça",
+    file_word="le fichier",
+    reasoning_labels=re.compile(
+        r"^(?:thinking|reasoning|analysis|thought|raisonnement|réflexion|pensée|analyse)"
+        r"\s*[:\-]\s*",
+        re.IGNORECASE,
+    ),
+)
+
+LANGUAGES: tuple[LanguagePack, ...] = (ENGLISH, SPANISH, FRENCH)
 PACKS: dict[str, LanguagePack] = {pack.code: pack for pack in LANGUAGES}
 DEFAULT_PACK = ENGLISH
 DEFAULT_VOICE = "af_heart"

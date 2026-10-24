@@ -37,6 +37,9 @@ def test_config_accepts_a_spanish_voice(tmp_path):
     config = with_voice(load_config(tmp_path), "em_alex")
     assert config.speech.voice == "em_alex"
 
+    (tmp_path / "config.toml").write_text('[speech]\nvoice = "ff_siwis"\n')
+    assert load_config(tmp_path).speech.voice == "ff_siwis"
+
 
 def test_config_clamps_bad_values(tmp_path):
     (tmp_path / "config.toml").write_text(
