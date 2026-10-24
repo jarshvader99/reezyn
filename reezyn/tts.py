@@ -109,6 +109,7 @@ class KokoroSpeaker:
         self._current_stop = threading.Event()
         self._play_lock = threading.RLock()
         self._generation = 0
+        self._synth_lock = threading.Lock()
         self._afplay: subprocess.Popen[bytes] | None = None
         self._sounddevice_ok: bool | None = None
 
@@ -178,6 +179,8 @@ class KokoroSpeaker:
                 if not self._play(audio, sample_rate, stop):
                     interrupted = True
                     break
+            if stop.is_set():
+                interrupted = True
         finally:
             stop.set()
             self._stop_playback()
@@ -222,7 +225,8 @@ class KokoroSpeaker:
                 output.put(None)
 
         try:
-            asyncio.run(run())
+            with self._synth_lock:
+                asyncio.run(run())
         except BaseException as exc:
             output.put(SpeechError(str(exc)))
             output.put(None)
