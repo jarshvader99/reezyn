@@ -220,16 +220,16 @@ class KokoroSpeaker:
                         except queue.Full:
                             continue
             except BaseException as exc:
-                output.put(SpeechError(str(exc)))
+                _put(output, SpeechError(str(exc)), stop)
             finally:
-                output.put(None)
+                _put(output, None, stop)
 
         try:
             with self._synth_lock:
                 asyncio.run(run())
         except BaseException as exc:
-            output.put(SpeechError(str(exc)))
-            output.put(None)
+            _put(output, SpeechError(str(exc)), stop)
+            _put(output, None, stop)
 
     def _ensure_engine(self) -> Any:
         if self._engine is not None:
@@ -332,3 +332,17 @@ class KokoroSpeaker:
             process = self._afplay
             if process and process.poll() is None:
                 process.terminate()
+
+
+def _put(
+    output: queue.Queue[tuple[np.ndarray, int] | BaseException | None],
+    item: tuple[np.ndarray, int] | BaseException | None,
+    stop: threading.Event,
+) -> None:
+    while True:
+        try:
+            output.put(item, timeout=0.1)
+            return
+        except queue.Full:
+            if stop.is_set():
+                return
