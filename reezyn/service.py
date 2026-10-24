@@ -20,6 +20,7 @@ from .config import (
 from .events import Event
 from .installers import InstallResult, install_hooks, is_installed
 from .narration import Narrator
+from .runtime import clear_running, write_running
 from .spool import SpoolWatcher
 from .tts import KokoroSpeaker, download_models
 
@@ -81,6 +82,7 @@ class ReezynService:
             if self._started:
                 return
             self._started = True
+        write_running(self.home)
         self.narrator.start()
         self.spool.start()
         if self.codex:
@@ -105,6 +107,7 @@ class ReezynService:
         self.spool.stop()
         self.narrator.stop()
         self.speaker.stop()
+        clear_running(self.home)
 
     def status(self) -> ServiceStatus:
         state = self.narrator.state()

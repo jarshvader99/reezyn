@@ -23,6 +23,7 @@ from .installers import (
     settings_path,
     uninstall_hooks,
 )
+from .runtime import is_running
 from .sanitize import sanitize_hook_payload
 from .spool import Spool
 
@@ -275,9 +276,11 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     codex_root = codex_home() / "sessions"
     codex_count = _count_codex_sessions(codex_root)
     spool_count = len(list((home / "events").glob("*.json"))) if (home / "events").exists() else 0
+    running = is_running(home)
 
     report: dict[str, Any] = {
         "version": __version__,
+        "running": running,
         "python": sys.executable,
         "home": str(home),
         "config": str(home / "config.toml"),
@@ -308,7 +311,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         print(json.dumps(report, indent=2))
         return 0
 
-    print(f"Reezyn {__version__}")
+    print(f"Reezyn {__version__} ({'running' if running else 'not running'})")
     print(f"  Python       {report['python']}")
     print(f"  State        {home}")
     print(f"  Config       {home / 'config.toml'}")
@@ -405,13 +408,7 @@ def _hook_log(agent: str, message: str) -> None:
 
 
 def _app_likely_running() -> bool:
-    """Best effort: a recent hook event or the presence of the app's log."""
-
-    home = app_home()
-    try:
-        return (home / "events").exists() or (home / "reezyn.log").exists()
-    except OSError:
-        return False
+    return is_running(app_home())
 
 
 def _audio_status() -> str:

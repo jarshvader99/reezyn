@@ -105,7 +105,7 @@ def clean_for_speech(text: str) -> str:
     value = re.sub(r"\n\s*[-*+]\s+", ". ", value)
     value = re.sub(r"\n+", ". ", value)
     value = re.sub(r"([,;:])\s*([,;:])+", r"\1", value)
-    value = re.sub(r"\.{2,}", ".", value)
+    value = re.sub(r"\.(?:\s*\.)+", ".", value)
     value = re.sub(r"\s+([,.;:!?])", r"\1", value)
     value = WHITESPACE.sub(" ", value).strip(" .;:-")
     value = _remove_reasoning_labels(value)
@@ -344,11 +344,16 @@ def _basename(path: str) -> str:
 
 
 def _code_to_words(code: str) -> str:
-    if not code.strip():
+    value = code.strip()
+    if not value:
         return " "
-    if re.fullmatch(r"[\w./@+-]+", code.strip()):
-        return _basename(code.strip())
-    return " "
+    if re.fullmatch(r"[\w./@+-]+", value):
+        if "/" in value or "." in value:
+            return _basename(value)
+        return SNAKE_CASE.sub(_expand_identifier, CAMEL_CASE.sub(_expand_identifier, value))
+    if re.search(r"\s", value):
+        return "the command"
+    return "that"
 
 
 def _expand_identifier(match: re.Match[str]) -> str:
