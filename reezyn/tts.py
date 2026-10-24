@@ -108,6 +108,7 @@ class KokoroSpeaker:
         self._load_error = ""
         self._current_stop = threading.Event()
         self._play_lock = threading.RLock()
+        self._generation = 0
         self._afplay: subprocess.Popen[bytes] | None = None
         self._sounddevice_ok: bool | None = None
 
@@ -139,9 +140,14 @@ class KokoroSpeaker:
         text = text.strip()
         if not text:
             return True
+        with self._play_lock:
+            generation = self._generation
         engine = self._ensure_engine()
         stop = threading.Event()
         with self._play_lock:
+            # A pause/skip during model loading should cancel this utterance too.
+            if generation != self._generation:
+                return False
             self._current_stop = stop
 
         chunk_queue: queue.Queue[tuple[np.ndarray, int] | BaseException | None] = queue.Queue(
@@ -180,6 +186,7 @@ class KokoroSpeaker:
 
     def stop(self) -> None:
         with self._play_lock:
+            self._generation += 1
             self._current_stop.set()
         self._stop_playback()
 
