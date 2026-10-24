@@ -65,14 +65,19 @@ class CodexWatcher:
     def poll_once(self) -> None:
         self._scan(prime=False)
 
+    def scan_now(self) -> None:
+        """Force discovery and ingestion; useful for tests and one-shot checks."""
+
+        self._scan(prime=False, force=True)
+
     def _run(self) -> None:
         while not self._stop.is_set():
             self._scan(prime=False)
             self._stop.wait(self._poll_s)
 
-    def _scan(self, prime: bool) -> None:
+    def _scan(self, prime: bool, force: bool = False) -> None:
         now = time.monotonic()
-        if prime or now - self._last_scan >= 2.5:
+        if prime or force or now - self._last_scan >= 2.5:
             self._discover(prime=prime)
             self._last_scan = now
 
