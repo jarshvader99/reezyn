@@ -126,8 +126,14 @@ def clean_for_speech(text: str) -> str:
     return value.strip()
 
 
-def select_excerpt(text: str, max_words: int = 42) -> str:
-    """Pick one or two complete sentences, capped to a comfortable length."""
+def select_excerpt(
+    text: str, max_words: int = 42, max_sentences: int = 2
+) -> str:
+    """Pick complete sentences, capped by words and sentence count.
+
+    ``max_sentences=0`` keeps every sentence that fits within ``max_words``,
+    which reads the whole thought for normal-length reasoning.
+    """
 
     cleaned = clean_for_speech(text)
     if not cleaned:
@@ -147,7 +153,9 @@ def select_excerpt(text: str, max_words: int = 42) -> str:
             chosen.append(sentence)
             total = count
             continue
-        if total + count <= max_words and len(chosen) < 2:
+        if max_sentences and len(chosen) >= max_sentences:
+            break
+        if total + count <= max_words:
             chosen.append(sentence)
             total += count
         else:
@@ -296,7 +304,9 @@ def compose_narration(
     latest_tool = tool_events[-1] if tool_events else None
 
     if reasoning:
-        excerpt = select_excerpt(reasoning.text, config.max_words)
+        excerpt = select_excerpt(
+            reasoning.text, config.max_words, config.max_sentences
+        )
         if not excerpt:
             reasoning = None
         else:

@@ -140,7 +140,10 @@ def load_config(home: Path | None = None) -> Config:
             model="fp16" if speech.get("model") == "fp16" else "int8",
         ),
         narration=NarrationConfig(
-            max_words=int(_clamp_float(narration.get("max_words"), 12, 80, 42)),
+            max_words=int(_clamp_float(narration.get("max_words"), 12, 400, 42)),
+            max_sentences=int(
+                _clamp_float(narration.get("max_sentences"), 0, 12, 2)
+            ),
             debounce_ms=int(_clamp_float(narration.get("debounce_ms"), 150, 3000, 700)),
             stale_after_s=_clamp_float(narration.get("stale_after_s"), 2, 60, 9),
             min_gap_s=_clamp_float(narration.get("min_gap_s"), 0, 4, 0.35),
