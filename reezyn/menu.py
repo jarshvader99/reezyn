@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import atexit
 import subprocess
 import threading
 from pathlib import Path
@@ -20,6 +21,7 @@ class ReezynMenuApp(rumps.App):
         self.home = home or app_home()
         self.config = config or load_config(self.home)
         self.service = ReezynService(self.config, self.home, on_change=self._service_changed)
+        atexit.register(self.service.stop)
         self._last_title = ""
         self._last_status = ""
         self._download_error = ""

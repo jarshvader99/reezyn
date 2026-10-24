@@ -96,7 +96,8 @@ def install_hooks(
         path.parent.mkdir(parents=True, exist_ok=True)
         if path.exists():
             backup = path.with_name(path.name + ".reezyn.bak")
-            shutil.copy2(path, backup)
+            if not backup.exists():
+                shutil.copy2(path, backup)
         _atomic_write(path, new_text)
     return InstallResult(
         agent=agent,
@@ -125,7 +126,8 @@ def uninstall_hooks(
         backup = None
         if path.exists():
             backup = path.with_name(path.name + ".reezyn.bak")
-            shutil.copy2(path, backup)
+            if not backup.exists():
+                shutil.copy2(path, backup)
         _atomic_write(path, json.dumps(settings, indent=2, ensure_ascii=False) + "\n")
     return InstallResult(
         agent=agent,

@@ -10,7 +10,7 @@ from typing import Any
 
 
 def write_running(home: Path) -> None:
-    home.mkdir(parents=True, exist_ok=True)
+    home.mkdir(parents=True, exist_ok=True, mode=0o700)
     path = home / "running.json"
     path.write_text(
         json.dumps({"pid": os.getpid(), "started_at": time.time()}),

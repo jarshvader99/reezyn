@@ -131,11 +131,12 @@ def _thought_text(entry: dict[str, Any]) -> str:
 
     content = entry.get("content")
     if isinstance(content, dict):
-        for key in ("thought", "thinking", "reasoning", "thoughts"):
+        for key in ("thought", "thinking", "reasoning", "thoughts", "parts"):
             text = _text_from_value(content.get(key), prefer_thought=True)
             if text:
                 return text
-    return ""
+    text = _text_from_value(entry.get("parts"), prefer_thought=True)
+    return text
 
 
 def _message_text(entry: dict[str, Any]) -> str:
