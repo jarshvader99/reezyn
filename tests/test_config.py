@@ -20,6 +20,8 @@ def test_config_round_trip(tmp_path, monkeypatch):
     assert config.agents.cursor is True
     assert config.agents.opencode is True
     assert config.agents.freebuff is True
+    assert config.ambience.enabled is False
+    assert config.ambience.volume == 0.35
 
     config = with_voice(config, "am_michael")
     config = with_speed(config, 1.01)
@@ -67,7 +69,23 @@ def test_config_clamps_bad_values(tmp_path):
     assert config.agents.cursor is True
     assert config.agents.opencode is True
     assert config.agents.freebuff is True
-    assert config.agents.freebuff is True
+    assert config.ambience.enabled is False
+    assert config.ambience.volume == 0.35
+
+
+def test_ambience_config_round_trip(tmp_path):
+    (tmp_path / "config.toml").write_text(
+        "[ambience]\nenabled = true\nvolume = 2\n"
+    )
+    config = load_config(tmp_path)
+    assert config.ambience.enabled is True
+    assert config.ambience.volume == 1.0
+
+    config.ambience.volume = 0.3
+    config.save(tmp_path)
+    loaded = load_config(tmp_path)
+    assert loaded.ambience.enabled is True
+    assert loaded.ambience.volume == 0.3
 
 
 def test_invalid_toml_falls_back_to_defaults(tmp_path):

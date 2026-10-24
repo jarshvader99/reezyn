@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import atexit
+import logging
 import subprocess
 import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +16,9 @@ from . import __version__
 from .config import CONFIG_ENV, SPEEDS, Config, app_home, load_config
 from .languages import LANGUAGES
 from .service import ReezynService
+from .status_icon import icon_alpha, reduce_motion, seedling_image
+
+log = logging.getLogger("reezyn")
 
 AGENT_LABELS = {
     "claude": "Claude Code",
@@ -38,6 +43,14 @@ class ReezynMenuApp(rumps.App):
         self._last_status = ""
         self._download_error = ""
         self._download_thread: threading.Thread | None = None
+
+        self._icon_ready = False
+        self._icon_failed = False
+        self._icon_alpha: float | None = None
+        self._breathing = False
+        self._breath_started = 0.0
+        self._reduce_motion = False
+        self._breath_timer = rumps.Timer(self._breathe, 0.1)
 
         self.status_item = rumps.MenuItem("Starting…")
         self.agent_item = rumps.MenuItem("Active agent: none yet")
@@ -71,6 +84,10 @@ class ReezynMenuApp(rumps.App):
             self.pace_items[label] = item
             pace_menu.add(item)
 
+        self.ambience_item = rumps.MenuItem(
+            "Presence bed", callback=self._toggle_ambience
+        )
+
         hooks_menu = rumps.MenuItem("Install agent hooks")
         hooks_menu.add(rumps.MenuItem("Claude Code…", callback=self._install_claude))
         hooks_menu.add(rumps.MenuItem("Gemini CLI…", callback=self._install_gemini))
@@ -101,6 +118,7 @@ class ReezynMenuApp(rumps.App):
             rumps.separator,
             voice_menu,
             pace_menu,
+            self.ambience_item,
             rumps.separator,
             hooks_menu,
             self.download_item,
@@ -128,31 +146,36 @@ class ReezynMenuApp(rumps.App):
     def _tick(self, _timer: Any = None) -> None:
         status = self.service.status()
         download = self.service.download_progress
+        self._update_icon(status)
+        icon_ok = self._icon_ready and not self._icon_failed
 
         if download:
             label = str(download.get("label") or "model")
             percent = float(download.get("percent") or 0.0)
             self.status_item.title = f"Downloading {label} — {percent:.0f}%"
-            title = "reezyn ↓"
+            title = "↓" if icon_ok else "reezyn ↓"
         elif status.state == "setup":
             self.status_item.title = "Voice model not installed — download it below"
-            title = "reezyn !"
+            title = "!" if icon_ok else "reezyn !"
         elif status.state == "error":
             detail = status.last_error or "Speech error"
             self.status_item.title = f"Speech error: {detail[:80]}"
-            title = "reezyn !"
+            title = "!" if icon_ok else "reezyn !"
         elif status.paused:
             self.status_item.title = "Paused"
-            title = "reezyn ⏸"
+            title = "⏸" if icon_ok else "reezyn ⏸"
         elif status.speaking:
             self.status_item.title = _shorten(status.current or "Speaking…", 84)
-            title = "reezyn ·"
+            if not icon_ok:
+                title = "reezyn ·"
+            else:
+                title = "·" if self._reduce_motion else ""
         elif status.simulating:
             self.status_item.title = "Simulating an agent session…"
-            title = "reezyn"
+            title = "" if icon_ok else "reezyn"
         else:
             self.status_item.title = "Listening for agent reasoning"
-            title = "reezyn"
+            title = "" if icon_ok else "reezyn"
 
         if title != self._last_title:
             self.title = title
@@ -168,6 +191,7 @@ class ReezynMenuApp(rumps.App):
         )
 
         self.pause_item.title = "Resume narration" if status.paused else "Pause narration"
+        self.ambience_item.state = 1 if status.ambience else 0
         self.download_item.hidden = status.model_ready
         if status.state != self._last_status:
             self._refresh_recent()
@@ -180,6 +204,78 @@ class ReezynMenuApp(rumps.App):
             message = self._download_error
             self._download_error = ""
             rumps.alert(title="Could not download the voice model", message=message, ok="OK")
+
+    def _update_icon(self, status: Any) -> None:
+        nsapp = getattr(self, "_nsapp", None)
+        status_item = getattr(nsapp, "nsstatusitem", None) if nsapp is not None else None
+        if status_item is None:
+            return
+        if not self._icon_ready and not self._icon_failed:
+            self._install_icon(status_item)
+        if not self._icon_ready or self._icon_failed:
+            return
+
+        self._reduce_motion = reduce_motion()
+        if status.speaking and not self._reduce_motion:
+            if not self._breathing:
+                self._breathing = True
+                self._breath_started = time.monotonic()
+                self._breath_timer.start()
+            self._set_icon_alpha(
+                icon_alpha("speaking", time.monotonic() - self._breath_started),
+                status_item,
+            )
+            return
+
+        if self._breathing:
+            self._breathing = False
+            self._breath_timer.stop()
+        self._set_icon_alpha(
+            icon_alpha("paused" if status.paused else "listening"), status_item
+        )
+
+    def _install_icon(self, status_item: Any) -> None:
+        try:
+            button = status_item.button()
+        except Exception:
+            button = None
+        if button is not None:
+            try:
+                button.setAccessibilityLabel_("Reezyn")
+                button.setToolTip_("Reezyn — calm narration for agent reasoning")
+            except Exception as exc:
+                log.debug("could not label the status item: %s", exc)
+
+        self._set_icon_alpha(1.0, status_item)
+        if not self._icon_failed:
+            self._icon_ready = True
+            log.info("menu bar seedling icon ready")
+
+    def _set_icon_alpha(self, alpha: float, status_item: Any) -> None:
+        quantized = round(alpha * 48) / 48
+        if quantized == self._icon_alpha:
+            return
+        try:
+            status_item.setImage_(seedling_image(quantized))
+        except Exception as exc:
+            self._icon_failed = True
+            log.warning("could not install the menu bar icon: %s", exc)
+            return
+        self._icon_alpha = quantized
+
+    def _breathe(self, _timer: Any = None) -> None:
+        if not self._icon_ready or self._icon_failed:
+            self._breathing = False
+            self._breath_timer.stop()
+            return
+        nsapp = getattr(self, "_nsapp", None)
+        status_item = getattr(nsapp, "nsstatusitem", None) if nsapp is not None else None
+        if status_item is None:
+            return
+        self._set_icon_alpha(
+            icon_alpha("speaking", time.monotonic() - self._breath_started),
+            status_item,
+        )
 
     def _refresh_checks(self) -> None:
         for voice_id, item in self.voice_items.items():
@@ -256,6 +352,15 @@ class ReezynMenuApp(rumps.App):
         else:
             text = f"The hook is already present in {result.path}."
         rumps.alert(title="Reezyn hook", message=text, ok="Done")
+
+    def _toggle_ambience(self, _sender: Any = None) -> None:
+        enable = not self.service.status().ambience
+        ok = self.service.set_ambience(enable)
+        self.config = self.service.config
+        self._tick()
+        if enable and not ok:
+            error = self.service.status().ambience_error or "No audio output device is available."
+            rumps.alert(title="Presence bed unavailable", message=error, ok="OK")
 
     def _download_model(self, _sender: Any = None) -> None:
         if self._download_thread and self._download_thread.is_alive():

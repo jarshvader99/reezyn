@@ -53,6 +53,12 @@ class NarrationConfig:
 
 
 @dataclass(slots=True)
+class AmbienceConfig:
+    enabled: bool = False
+    volume: float = 0.35
+
+
+@dataclass(slots=True)
 class AgentsConfig:
     claude: bool = True
     codex: bool = True
@@ -66,6 +72,7 @@ class AgentsConfig:
 class Config:
     speech: SpeechConfig = field(default_factory=SpeechConfig)
     narration: NarrationConfig = field(default_factory=NarrationConfig)
+    ambience: AmbienceConfig = field(default_factory=AmbienceConfig)
     agents: AgentsConfig = field(default_factory=AgentsConfig)
 
     def save(self, home: Path | None = None) -> Path:
@@ -79,6 +86,7 @@ class Config:
         s = self.speech
         n = self.narration
         a = self.agents
+        m = self.ambience
         return (
             "# Reezyn configuration\n"
             "# Changes here are read when the menu-bar app starts.\n\n"
@@ -101,7 +109,10 @@ class Config:
             f"gemini = {str(a.gemini).lower()}\n"
             f"cursor = {str(a.cursor).lower()}\n"
             f"opencode = {str(a.opencode).lower()}\n"
-            f"freebuff = {str(a.freebuff).lower()}\n"
+            f"freebuff = {str(a.freebuff).lower()}\n\n"
+            "[ambience]\n"
+            f"enabled = {str(m.enabled).lower()}\n"
+            f"volume = {m.volume:.2f}\n"
         )
 
 
@@ -125,6 +136,7 @@ def load_config(home: Path | None = None) -> Config:
 
     speech = _section(raw, "speech")
     narration = _section(raw, "narration")
+    ambience = _section(raw, "ambience")
     agents = _section(raw, "agents")
 
     config = Config(
@@ -144,6 +156,10 @@ def load_config(home: Path | None = None) -> Config:
             min_gap_s=_clamp_float(narration.get("min_gap_s"), 0, 4, 0.35),
             connectors=_bool(narration.get("connectors"), True),
             dedupe_s=_clamp_float(narration.get("dedupe_s"), 1, 300, 30),
+        ),
+        ambience=AmbienceConfig(
+            enabled=_bool(ambience.get("enabled"), False),
+            volume=_clamp_float(ambience.get("volume"), 0.0, 1.0, 0.35),
         ),
         agents=AgentsConfig(
             claude=_bool(agents.get("claude"), True),

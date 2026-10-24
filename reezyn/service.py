@@ -15,6 +15,7 @@ from .adapters.cursor import CursorWatcher
 from .adapters.freebuff import FreebuffWatcher
 from .adapters.gemini import GeminiHookAdapter
 from .adapters.opencode import OpenCodeWatcher
+from .ambience import Ambience
 from .config import (
     Config,
     with_speed,
@@ -44,6 +45,8 @@ class ServiceStatus:
     version: int
     simulating: bool
     active_agent: str
+    ambience: bool
+    ambience_error: str
 
 
 class ReezynService:
@@ -66,11 +69,13 @@ class ReezynService:
 
         self.claude = ClaudeHookAdapter()
         self.gemini = GeminiHookAdapter()
+        self.ambience = Ambience(config.ambience)
         self.narrator = Narrator(
             speak=self.speaker.speak,
             config=config.narration,
             stop_speech=self.speaker.stop,
             on_change=self._changed,
+            on_speaking=self._on_speaking,
             pack=pack_for_voice(config.speech.voice),
         )
 
@@ -94,6 +99,8 @@ class ReezynService:
             self._started = True
         write_running(self.home)
         self.narrator.start()
+        if not self.ambience.start():
+            log.warning("Presence bed did not start: %s", self.ambience.error)
         self.spool.start()
         for name, watcher in (
             ("Codex", self.codex),
@@ -123,6 +130,7 @@ class ReezynService:
                 watcher.stop()
         self.spool.stop()
         self.narrator.stop()
+        self.ambience.stop()
         self.speaker.stop()
         clear_running(self.home)
 
@@ -144,6 +152,8 @@ class ReezynService:
             version=self._version,
             simulating=self._simulating,
             active_agent=active_agent,
+            ambience=self.ambience.running,
+            ambience_error=self.ambience.error,
         )
 
     def pause(self) -> None:
@@ -166,6 +176,20 @@ class ReezynService:
         self.narrator.set_pack(pack_for_voice(voice))
         self.config.save(self.home)
         self._changed()
+
+    def set_ambience(self, enabled: bool) -> bool:
+        self.config.ambience.enabled = enabled
+        if enabled:
+            ok = self.ambience.start()
+        else:
+            self.ambience.stop()
+            ok = True
+        self.config.save(self.home)
+        self._changed()
+        return ok
+
+    def toggle_ambience(self) -> bool:
+        return self.set_ambience(not self.ambience.running)
 
     def set_speed(self, speed: float) -> None:
         self.config = with_speed(self.config, speed)
@@ -294,6 +318,9 @@ class ReezynService:
             events = _generic_events(payload)
         for event in events:
             self._submit_event(event)
+
+    def _on_speaking(self, speaking: bool) -> None:
+        self.ambience.set_ducked(speaking)
 
     def _on_event(self, event: Event) -> None:
         self._submit_event(event)

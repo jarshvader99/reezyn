@@ -337,6 +337,10 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             "chats": freebuff_count,
             "watching": config.agents.freebuff,
         },
+        "ambience": {
+            "enabled": config.ambience.enabled,
+            "volume": config.ambience.volume,
+        },
         "pending_events": spool_count,
     }
 
@@ -360,6 +364,11 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         "  OpenCode     "
         + ("database found" if report["opencode"]["present"] else "database not found")
         + f"  ({opencode_db})"
+    )
+    print(
+        "  Presence bed "
+        + ("on" if config.ambience.enabled else "off")
+        + f" at {config.ambience.volume:.2f}"
     )
     print(f"  Spool        {spool_count} pending event(s)")
     if not paths.ready:

@@ -203,6 +203,38 @@ def test_narrator_deduplicates_and_speaks():
         narrator.stop()
 
 
+def test_narrator_reports_when_speech_starts_and_ends():
+    spoken: list[str] = []
+    states: list[bool] = []
+
+    def speak(text: str) -> bool:
+        spoken.append(text)
+        return True
+
+    narrator = Narrator(
+        speak,
+        NarrationConfig(
+            debounce_ms=10,
+            min_gap_s=0,
+            connectors=False,
+            stale_after_s=5,
+        ),
+        on_speaking=states.append,
+    )
+    narrator.start()
+    try:
+        narrator.submit(
+            Event(agent="test", kind="reasoning", text="I'll check the auth tests.")
+        )
+        deadline = time.time() + 2
+        while (not spoken or len(states) < 2) and time.time() < deadline:
+            time.sleep(0.02)
+        assert spoken
+        assert states == [True, False]
+    finally:
+        narrator.stop()
+
+
 def test_narrator_pause_stops_queue():
     spoken: list[str] = []
     stopped = threading.Event()

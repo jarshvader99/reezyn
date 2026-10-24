@@ -4,7 +4,14 @@ import shutil
 import time
 from pathlib import Path
 
-from reezyn.config import AgentsConfig, Config, NarrationConfig, SpeechConfig
+from reezyn.config import (
+    AgentsConfig,
+    AmbienceConfig,
+    Config,
+    NarrationConfig,
+    SpeechConfig,
+    load_config,
+)
 from reezyn.events import Event
 from reezyn.runtime import is_running
 from reezyn.service import ReezynService
@@ -88,6 +95,73 @@ def test_service_spools_a_claude_hook_into_speech(tmp_path, monkeypatch):
     finally:
         service.stop()
     assert not is_running(home)
+
+
+class FakeAmbience:
+    def __init__(self, config: AmbienceConfig) -> None:
+        self.config = config
+        self.running = False
+        self.error = ""
+        self.ducked: list[bool] = []
+
+    def start(self) -> bool:
+        self.running = self.config.enabled
+        return True
+
+    def stop(self) -> None:
+        self.running = False
+
+    def set_ducked(self, ducked: bool) -> None:
+        self.ducked.append(ducked)
+
+
+def test_service_ducks_the_presence_bed_under_speech(tmp_path, monkeypatch):
+    monkeypatch.setattr("reezyn.service.Ambience", FakeAmbience)
+    home = tmp_path / "state"
+    config = Config(
+        speech=SpeechConfig(),
+        narration=NarrationConfig(
+            debounce_ms=20,
+            stale_after_s=5,
+            min_gap_s=0,
+            connectors=False,
+        ),
+        ambience=AmbienceConfig(enabled=True),
+        agents=AgentsConfig(
+            claude=False,
+            codex=False,
+            gemini=False,
+            cursor=False,
+            opencode=False,
+            freebuff=False,
+        ),
+    )
+    speaker = FakeSpeaker()
+    service = ReezynService(config, home, speaker=speaker)
+    service.start()
+    try:
+        assert service.status().ambience is True
+        Spool(home).emit(
+            "generic",
+            Event(
+                agent="test",
+                kind="tool",
+                tool_name="Read",
+                tool_input={"path": "session.ts"},
+            ).to_dict(),
+        )
+        deadline = time.time() + 3
+        while (not speaker.spoken or len(service.ambience.ducked) < 2) and time.time() < deadline:
+            time.sleep(0.05)
+
+        assert speaker.spoken
+        assert service.ambience.ducked[:2] == [True, False]
+
+        assert service.set_ambience(False) is True
+        assert service.status().ambience is False
+        assert load_config(home).ambience.enabled is False
+    finally:
+        service.stop()
 
 
 def test_service_switches_narration_language_with_the_voice(tmp_path):

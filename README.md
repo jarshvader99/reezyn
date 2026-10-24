@@ -167,7 +167,7 @@ call instead.
 ## The menu bar
 
 - **Listening** — idle, waiting for a worthwhile event.
-- **Speaking** — the menu title shows a dot; the status line displays the
+- **Speaking** — the seedling breathes slowly and the status line displays the
   current line.
 - **Pause narration** — stops the current audio and clears the queue.
 - **Skip this thought** — interrupts the current utterance.
@@ -176,12 +176,19 @@ call instead.
   Alex, Santa), or French (Siwis). The selected voice also selects the language
   Reezyn speaks around the agent's words.
 - **Pace** — Calm (0.84×), Natural (0.94×), Brisk (1.04×).
+- **Presence bed** — optional generated room tone, ducked while narration plays.
 - **Install agent hooks** — writes the Claude or Gemini integration after a
   confirmation dialog. Codex, Cursor, OpenCode, and Freebuff are watched
   automatically.
 - **Download voice model** — appears while the model is missing.
 - **Simulate a session** — a local demo through the real pipeline.
 - **Open Reezyn folder** — `~/.reezyn`.
+
+The status item is a small template seedling. It stays still while idle, breathes
+slowly while Reezyn is speaking, dims when narration is paused, and stays static
+when macOS Reduce Motion is enabled. The icon carries the identity, so the word
+`reezyn` is no longer in the menu bar; compact glyphs still mark paused (`⏸`),
+setup or speech errors (`!`), and downloads (`↓`).
 
 `reezyn doctor` is the text version of the same state.
 
@@ -208,6 +215,19 @@ uv run reezyn start --voice ff_siwis  # start with Siwis, French
 
 `--voice` is applied at startup, so stop the menu app before using it; while
 Reezyn is running, choose the voice from the menu instead.
+
+## Presence bed
+
+The presence bed is a quiet room tone generated on this machine: no samples,
+no download, no network. Turn it on from the menu. It fades in, sits low under
+everything, and drops to a quarter of its level while a line is spoken, then
+eases back. It is deliberately noise rather than music or binaural tones: there
+is nothing to license and nothing competing with the agent's voice.
+
+It is off by default. Set `[ambience] enabled = true` to start with it on, or
+toggle **Presence bed** in the menu while the app is running. The bed uses
+`sounddevice` like the voice; when speech falls back to `afplay`, the two
+streams cannot be mixed and the bed stays silent.
 
 ## Configuration
 
@@ -236,9 +256,13 @@ gemini = true
 cursor = true
 opencode = true
 freebuff = true
+
+[ambience]
+enabled = false
+volume = 0.35           # 0..1, quiet by design
 ```
 
-The menu writes voice and pace changes back here. Other edits take effect when
+The menu writes voice, pace, and presence-bed changes back here. Other edits take effect when
 the app restarts.
 
 `REEZYN_HOME` moves all Reezyn state (config, models, spool, logs). Set it in
@@ -312,6 +336,8 @@ reezyn/
   menu.py        rumps menu-bar app
   narration.py   excerpting, tool descriptions, coalescing queue
   languages.py   voice packs: language, voices, phrasing, text rules
+  status_icon.py seedling template icon and breathing curve
+  ambience.py    generated presence bed with ducking
   service.py     adapter → queue wiring
   tts.py         Kokoro setup, streaming playback, interruption
   spool.py       cross-process event handoff
@@ -336,5 +362,8 @@ reezyn/
 - Freebuff's `chat-messages.json` snapshot is a local UI cache and can change
   shape between releases. Reezyn ignores unknown block types, and a chat that
   has already been compacted exposes only the messages Freebuff kept.
+- The presence bed needs `sounddevice`. With the `afplay` speech fallback it is
+  unavailable, and it follows the current default output device rather than a
+  device chosen per utterance.
 - Reezyn expects the menu app to be running. Hooks are fast and fail silently;
   check `~/.reezyn/hook-errors.log` if events are not arriving.

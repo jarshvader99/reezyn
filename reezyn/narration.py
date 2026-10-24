@@ -522,6 +522,7 @@ class Narrator:
         stop_speech: Callable[[], None] | None = None,
         on_change: Callable[[], None] | None = None,
         on_spoken: Callable[[str], None] | None = None,
+        on_speaking: Callable[[bool], None] | None = None,
         pack: LanguagePack = DEFAULT_PACK,
     ) -> None:
         self._speak = speak
@@ -530,6 +531,7 @@ class Narrator:
         self._pack = pack
         self._on_change = on_change
         self._on_spoken = on_spoken
+        self._on_speaking = on_speaking
         self._lock = threading.RLock()
         self._wake = threading.Event()
         self._stop = threading.Event()
@@ -675,10 +677,13 @@ class Narrator:
             self._notify()
 
             ok = True
+            speaking = False
             if cancelled:
                 ok = False
             elif not error_blocked and not self._stop.is_set():
                 log.info("speaking: %s", narration.text)
+                speaking = True
+                self._notify_speaking(True)
                 try:
                     result = self._speak(narration.text)
                     ok = result is not False
@@ -689,6 +694,8 @@ class Narrator:
                         self._last_error = f"{type(exc).__name__}: {exc}"
                         self._error_until = time.monotonic() + 15
                         ok = False
+            if speaking:
+                self._notify_speaking(False)
 
             with self._lock:
                 self._speaking = False
@@ -712,6 +719,13 @@ class Narrator:
             ):
                 self._wake.wait(0.05)
                 self._wake.clear()
+
+    def _notify_speaking(self, speaking: bool) -> None:
+        if self._on_speaking:
+            try:
+                self._on_speaking(speaking)
+            except Exception:
+                pass
 
     def _notify(self) -> None:
         if self._on_change:
