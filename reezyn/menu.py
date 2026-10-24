@@ -56,9 +56,12 @@ class ReezynMenuApp(rumps.App):
         hooks_menu.add(rumps.MenuItem("Claude Code…", callback=self._install_claude))
         hooks_menu.add(rumps.MenuItem("Gemini CLI…", callback=self._install_gemini))
         hooks_menu.add(rumps.separator)
-        codex_note = rumps.MenuItem("Codex CLI — watched automatically")
-        codex_note.set_callback(None)
-        hooks_menu.add(codex_note)
+        watched_menu = rumps.MenuItem("Watched automatically")
+        for label in ("Codex CLI", "Cursor", "OpenCode"):
+            item = rumps.MenuItem(label)
+            item.set_callback(None)
+            watched_menu.add(item)
+        hooks_menu.add(watched_menu)
 
         self.download_item = rumps.MenuItem(
             "Download voice model…", callback=self._download_model

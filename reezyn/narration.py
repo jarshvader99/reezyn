@@ -166,23 +166,39 @@ def describe_tool(name: str, tool_input: dict[str, Any] | None = None) -> str:
     key = raw.lower()
     file_name = _tool_file(tool_input)
 
-    if key in {"bash", "shell", "exec_command", "run_shell_command", "local_shell_call"}:
+    if key in {
+        "bash",
+        "shell",
+        "exec_command",
+        "run_shell_command",
+        "run_terminal_command",
+        "local_shell_call",
+    }:
         command = str(tool_input.get("command") or tool_input.get("cmd") or "")
         return command_intent(command)
     if key in {"read", "read_file", "view", "open_file"}:
         return f"reading {file_name}" if file_name else "reading through the code"
-    if key in {"edit", "write", "multiedit", "write_file", "replace", "apply_patch"}:
+    if key in {
+        "edit",
+        "edit_file",
+        "write",
+        "write_file",
+        "multiedit",
+        "replace",
+        "apply_patch",
+        "delete_file",
+    }:
         return f"updating {file_name}" if file_name else "editing the files"
     if key in {"notebookedit", "edit_notebook"}:
         return "updating the notebook"
-    if key in {"grep", "grep_search"}:
+    if key in {"grep", "grep_search", "ripgrep"}:
         pattern = str(tool_input.get("pattern") or "").strip()
         if pattern and len(pattern) <= 40 and re.search(r"[A-Za-z0-9]", pattern):
             return f'searching for "{_clean_quoted(pattern)}"'
         return "searching the codebase"
     if key in {"glob", "list_files", "file_search"}:
         return "finding the relevant files"
-    if key in {"websearch", "google_web_search", "web_search"}:
+    if key in {"websearch", "google_web_search", "web_search", "semantic_search"}:
         return "checking the docs"
     if key in {"webfetch", "web_fetch", "fetch"}:
         return "reading the docs"
@@ -192,6 +208,12 @@ def describe_tool(name: str, tool_input: dict[str, Any] | None = None) -> str:
         return "updating the plan"
     if key in {"view_image", "read_image"}:
         return "looking at the screenshot"
+    if key in {"skill", "load_skill"}:
+        return "loading a skill"
+    if key in {"question", "ask_user"}:
+        return "asking a question"
+    if key in {"lsp", "read_lints"}:
+        return "checking the language server"
     if key.startswith("mcp__"):
         parts = raw.split("__")
         server = parts[1] if len(parts) > 1 else "an MCP server"
@@ -398,7 +420,15 @@ def _clean_quoted(value: str) -> str:
 
 
 def _tool_file(tool_input: dict[str, Any]) -> str:
-    for key in ("file_path", "path", "notebook_path", "file"):
+    for key in (
+        "file_path",
+        "filePath",
+        "path",
+        "notebook_path",
+        "file",
+        "targetFile",
+        "relativePath",
+    ):
         value = tool_input.get(key)
         if isinstance(value, str) and value.strip():
             return _basename(value)

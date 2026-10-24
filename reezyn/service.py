@@ -11,7 +11,9 @@ from typing import Any
 
 from .adapters.claude import ClaudeHookAdapter
 from .adapters.codex import CodexWatcher
+from .adapters.cursor import CursorWatcher
 from .adapters.gemini import GeminiHookAdapter
+from .adapters.opencode import OpenCodeWatcher
 from .config import (
     Config,
     with_speed,
@@ -74,6 +76,8 @@ class ReezynService:
             sources.add("gemini")
         self.spool = SpoolWatcher(home, self._on_spool, sources=sources)
         self.codex = CodexWatcher(self._on_event) if config.agents.codex else None
+        self.cursor = CursorWatcher(self._on_event) if config.agents.cursor else None
+        self.opencode = OpenCodeWatcher(self._on_event) if config.agents.opencode else None
         self._preload_thread: threading.Thread | None = None
         self._download: dict[str, Any] | None = None
 
@@ -85,11 +89,16 @@ class ReezynService:
         write_running(self.home)
         self.narrator.start()
         self.spool.start()
-        if self.codex:
-            try:
-                self.codex.start()
-            except Exception:
-                log.exception("Could not start the Codex watcher")
+        for name, watcher in (
+            ("Codex", self.codex),
+            ("Cursor", self.cursor),
+            ("OpenCode", self.opencode),
+        ):
+            if watcher:
+                try:
+                    watcher.start()
+                except Exception:
+                    log.exception("Could not start the %s watcher", name)
         if self.speaker.ready:
             self._preload_thread = threading.Thread(
                 target=self.speaker.preload, name="reezyn-preload", daemon=True
@@ -102,8 +111,9 @@ class ReezynService:
             if not self._started:
                 return
             self._started = False
-        if self.codex:
-            self.codex.stop()
+        for watcher in (self.codex, self.cursor, self.opencode):
+            if watcher:
+                watcher.stop()
         self.spool.stop()
         self.narrator.stop()
         self.speaker.stop()

@@ -273,6 +273,9 @@ def cmd_install(args: argparse.Namespace) -> int:
 
 def cmd_doctor(args: argparse.Namespace) -> int:
     from .adapters.codex import codex_home
+    from .adapters.cursor import cursor_projects
+    from .adapters.opencode import accessible as opencode_accessible
+    from .adapters.opencode import opencode_db_path
     from .tts import model_paths
 
     home = app_home()
@@ -281,6 +284,9 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     audio = _audio_status()
     codex_root = codex_home() / "sessions"
     codex_count = _count_codex_sessions(codex_root)
+    cursor_root = cursor_projects()
+    cursor_count = _count_cursor_transcripts(cursor_root)
+    opencode_db = opencode_db_path()
     spool_count = len(list((home / "events").glob("*.json"))) if (home / "events").exists() else 0
     running = is_running(home)
 
@@ -310,6 +316,16 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             "rollouts": codex_count,
             "watching": config.agents.codex,
         },
+        "cursor": {
+            "projects": str(cursor_root),
+            "transcripts": cursor_count,
+            "watching": config.agents.cursor,
+        },
+        "opencode": {
+            "database": str(opencode_db),
+            "present": opencode_accessible(opencode_db),
+            "watching": config.agents.opencode,
+        },
         "pending_events": spool_count,
     }
 
@@ -327,6 +343,12 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     print(f"  Claude hook  {'installed' if report['claude_hook']['installed'] else 'not installed'}  ({settings_path('claude')})")
     print(f"  Gemini hook  {'installed' if report['gemini_hook']['installed'] else 'not installed'}  ({settings_path('gemini')})")
     print(f"  Codex        {codex_count} rollout file(s) under {codex_root}")
+    print(f"  Cursor       {cursor_count} transcript file(s) under {cursor_root}")
+    print(
+        "  OpenCode     "
+        + ("database found" if report["opencode"]["present"] else "database not found")
+        + f"  ({opencode_db})"
+    )
     print(f"  Spool        {spool_count} pending event(s)")
     if not paths.ready:
         print("\nRun `reezyn setup` to install the voice model.")
@@ -456,6 +478,22 @@ def _count_codex_sessions(root: Path) -> int:
     count = 0
     try:
         for _ in root.rglob("rollout-*.jsonl"):
+            count += 1
+            if count >= 999:
+                break
+    except OSError:
+        pass
+    return count
+
+
+def _count_cursor_transcripts(root: Path) -> int:
+    if not root.exists():
+        return 0
+    count = 0
+    try:
+        for path in root.rglob("*.jsonl"):
+            if "agent-transcripts" not in path.parts:
+                continue
             count += 1
             if count >= 999:
                 break

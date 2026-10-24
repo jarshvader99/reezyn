@@ -63,6 +63,8 @@ class AgentsConfig:
     claude: bool = True
     codex: bool = True
     gemini: bool = True
+    cursor: bool = True
+    opencode: bool = True
 
 
 @dataclass(slots=True)
@@ -101,6 +103,8 @@ class Config:
             f"claude = {str(a.claude).lower()}\n"
             f"codex = {str(a.codex).lower()}\n"
             f"gemini = {str(a.gemini).lower()}\n"
+            f"cursor = {str(a.cursor).lower()}\n"
+            f"opencode = {str(a.opencode).lower()}\n"
         )
 
 
@@ -145,6 +149,8 @@ def load_config(home: Path | None = None) -> Config:
             claude=_bool(agents.get("claude"), True),
             codex=_bool(agents.get("codex"), True),
             gemini=_bool(agents.get("gemini"), True),
+            cursor=_bool(agents.get("cursor"), True),
+            opencode=_bool(agents.get("opencode"), True),
         ),
     )
     return config
