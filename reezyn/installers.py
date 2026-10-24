@@ -138,7 +138,10 @@ def uninstall_hooks(
 
 def is_installed(agent: AgentName, system_home: Path | None = None) -> bool:
     path = settings_path(agent, system_home)
-    settings = _load_settings(path)
+    try:
+        settings = _load_settings(path)
+    except ValueError:
+        return False
     event = "PreToolUse" if agent == "claude" else "BeforeTool"
     return bool(_remove_ours(settings, event, agent, mutate=False))
 

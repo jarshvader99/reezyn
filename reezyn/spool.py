@@ -66,7 +66,6 @@ class SpoolWatcher:
         self._thread: threading.Thread | None = None
 
     def start(self) -> None:
-        self.spool.purge()
         if self._thread and self._thread.is_alive():
             return
         self._stop.clear()

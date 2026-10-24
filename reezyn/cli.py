@@ -102,6 +102,9 @@ def build_parser() -> argparse.ArgumentParser:
 def cmd_start(args: argparse.Namespace) -> int:
     home = app_home()
     home.mkdir(parents=True, exist_ok=True)
+    if is_running(home):
+        print("Reezyn is already running in the menu bar.")
+        return 0
     _configure_logging(home)
     config = load_config(home)
     if args.voice:
@@ -230,6 +233,9 @@ def cmd_setup(args: argparse.Namespace) -> int:
     if not paths.ready:
         print("Download finished but files are missing.", file=sys.stderr)
         return 1
+    config = load_config(home)
+    config.speech.model = args.model
+    config.save(home)
     print("Voice model ready.")
     print("Next: `reezyn` to start the menu-bar app.")
     if not is_installed("claude") and not is_installed("gemini"):
@@ -249,7 +255,7 @@ def cmd_install(args: argparse.Namespace) -> int:
 
         result = install_hooks(args.agent, dry_run=args.dry_run)
         if args.dry_run:
-            print(json.dumps(result.settings, indent=2, ensure_ascii=False))
+            print(json.dumps(_hook_snippet(result.settings, args.agent), indent=2, ensure_ascii=False))
             return 0
         if result.changed:
             print(f"Installed Reezyn's {args.agent} hook in {result.path}")
@@ -409,6 +415,29 @@ def _hook_log(agent: str, message: str) -> None:
 
 def _app_likely_running() -> bool:
     return is_running(app_home())
+
+
+def _hook_snippet(settings: dict[str, Any], agent: str) -> dict[str, Any]:
+    event = "PreToolUse" if agent == "claude" else "BeforeTool"
+    hooks = settings.get("hooks")
+    groups = hooks.get(event) if isinstance(hooks, dict) else None
+    ours = []
+    if isinstance(groups, list):
+        for group in groups:
+            if not isinstance(group, dict):
+                continue
+            handlers = group.get("hooks")
+            if not isinstance(handlers, list):
+                continue
+            if any(
+                isinstance(handler, dict)
+                and isinstance(handler.get("command"), str)
+                and "reezyn" in handler["command"]
+                and f"hook {agent}" in handler["command"]
+                for handler in handlers
+            ):
+                ours.append(group)
+    return {"hooks": {event: ours}}
 
 
 def _audio_status() -> str:
