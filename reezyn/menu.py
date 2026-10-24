@@ -13,7 +13,7 @@ from typing import Any
 import rumps
 
 from . import __version__
-from .config import CONFIG_ENV, SPEEDS, Config, app_home, load_config
+from .config import AMBIENCE_LEVELS, CONFIG_ENV, SPEEDS, Config, app_home, load_config
 from .languages import LANGUAGES
 from .service import ReezynService
 from .status_icon import icon_alpha, reduce_motion, seedling_image
@@ -84,9 +84,15 @@ class ReezynMenuApp(rumps.App):
             self.pace_items[label] = item
             pace_menu.add(item)
 
-        self.ambience_item = rumps.MenuItem(
-            "Presence bed", callback=self._toggle_ambience
-        )
+        self.ambience_menu = rumps.MenuItem("Presence bed")
+        self.ambience_off_item = rumps.MenuItem("Off", callback=self._disable_ambience)
+        self.ambience_menu.add(self.ambience_off_item)
+        self.ambience_menu.add(rumps.separator)
+        self.ambience_items: dict[str, rumps.MenuItem] = {}
+        for level_label, level in AMBIENCE_LEVELS.items():
+            item = rumps.MenuItem(level_label, callback=self._make_ambience_callback(level))
+            self.ambience_items[level_label] = item
+            self.ambience_menu.add(item)
 
         hooks_menu = rumps.MenuItem("Install agent hooks")
         hooks_menu.add(rumps.MenuItem("Claude Code…", callback=self._install_claude))
@@ -118,7 +124,7 @@ class ReezynMenuApp(rumps.App):
             rumps.separator,
             voice_menu,
             pace_menu,
-            self.ambience_item,
+            self.ambience_menu,
             rumps.separator,
             hooks_menu,
             self.download_item,
@@ -191,7 +197,15 @@ class ReezynMenuApp(rumps.App):
         )
 
         self.pause_item.title = "Resume narration" if status.paused else "Pause narration"
-        self.ambience_item.state = 1 if status.ambience else 0
+        self.ambience_menu.state = 1 if status.ambience else 0
+        self.ambience_off_item.state = 0 if status.ambience else 1
+        volume = self.service.config.ambience.volume
+        for level_label, item in self.ambience_items.items():
+            item.state = (
+                1
+                if status.ambience and abs(volume - AMBIENCE_LEVELS[level_label]) < 0.01
+                else 0
+            )
         self.download_item.hidden = status.model_ready
         if status.state != self._last_status:
             self._refresh_recent()
@@ -353,14 +367,24 @@ class ReezynMenuApp(rumps.App):
             text = f"The hook is already present in {result.path}."
         rumps.alert(title="Reezyn hook", message=text, ok="Done")
 
-    def _toggle_ambience(self, _sender: Any = None) -> None:
-        enable = not self.service.status().ambience
-        ok = self.service.set_ambience(enable)
+    def _make_ambience_callback(self, level: float) -> Any:
+        def choose(_sender: Any) -> None:
+            ok = self.service.set_ambience_level(level)
+            self.config = self.service.config
+            self._tick()
+            if not ok:
+                error = (
+                    self.service.status().ambience_error
+                    or "No audio output device is available."
+                )
+                rumps.alert(title="Presence bed unavailable", message=error, ok="OK")
+
+        return choose
+
+    def _disable_ambience(self, _sender: Any = None) -> None:
+        self.service.set_ambience(False)
         self.config = self.service.config
         self._tick()
-        if enable and not ok:
-            error = self.service.status().ambience_error or "No audio output device is available."
-            rumps.alert(title="Presence bed unavailable", message=error, ok="OK")
 
     def _download_model(self, _sender: Any = None) -> None:
         if self._download_thread and self._download_thread.is_alive():

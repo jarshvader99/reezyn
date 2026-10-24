@@ -176,7 +176,8 @@ call instead.
   Alex, Santa), or French (Siwis). The selected voice also selects the language
   Reezyn speaks around the agent's words.
 - **Pace** — Calm (0.84×), Natural (0.94×), Brisk (1.04×).
-- **Presence bed** — optional generated room tone, ducked while narration plays.
+- **Presence bed** — generated room tone with Off, Whisper, Soft, and Clear
+  levels; ducks while narration plays.
 - **Install agent hooks** — writes the Claude or Gemini integration after a
   confirmation dialog. Codex, Cursor, OpenCode, and Freebuff are watched
   automatically.
@@ -224,8 +225,9 @@ everything, and drops to a quarter of its level while a line is spoken, then
 eases back. It is deliberately noise rather than music or binaural tones: there
 is nothing to license and nothing competing with the agent's voice.
 
-It is off by default. Set `[ambience] enabled = true` to start with it on, or
-toggle **Presence bed** in the menu while the app is running. The bed uses
+It is off by default. Choose **Presence bed → Off / Whisper / Soft / Clear** in
+the menu; picking a level also turns the bed on, and Off preserves the level for
+next time. Set `[ambience] enabled = true` to start with it on. The bed uses
 `sounddevice` like the voice; when speech falls back to `afplay`, the two
 streams cannot be mixed and the bed stays silent.
 
@@ -259,7 +261,7 @@ freebuff = true
 
 [ambience]
 enabled = false
-volume = 0.35           # 0..1, quiet by design
+volume = 0.35           # 0..1; Whisper .15, Soft .35, Clear .55
 ```
 
 The menu writes voice, pace, and presence-bed changes back here. Other edits take effect when

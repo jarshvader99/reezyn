@@ -181,12 +181,18 @@ class ReezynService:
         self.config.ambience.enabled = enabled
         if enabled:
             ok = self.ambience.start()
+            if not ok:
+                self.config.ambience.enabled = False
         else:
             self.ambience.stop()
             ok = True
         self.config.save(self.home)
         self._changed()
         return ok
+
+    def set_ambience_level(self, volume: float) -> bool:
+        self.config.ambience.volume = max(0.0, min(1.0, volume))
+        return self.set_ambience(True)
 
     def toggle_ambience(self) -> bool:
         return self.set_ambience(not self.ambience.running)

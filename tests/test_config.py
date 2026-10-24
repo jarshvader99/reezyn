@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from reezyn.config import (
+    AMBIENCE_LEVELS,
     DEFAULT_VOICE,
     Config,
     app_home,
@@ -71,6 +72,12 @@ def test_config_clamps_bad_values(tmp_path):
     assert config.agents.freebuff is True
     assert config.ambience.enabled is False
     assert config.ambience.volume == 0.35
+
+
+def test_ambience_levels_are_few_and_quiet():
+    assert list(AMBIENCE_LEVELS) == ["Whisper", "Soft", "Clear"]
+    assert all(0.0 < level <= 0.6 for level in AMBIENCE_LEVELS.values())
+    assert AMBIENCE_LEVELS["Soft"] == 0.35
 
 
 def test_ambience_config_round_trip(tmp_path):

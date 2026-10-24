@@ -19,6 +19,12 @@ SPEEDS: dict[str, float] = {
     "Brisk": 1.04,
 }
 
+AMBIENCE_LEVELS: dict[str, float] = {
+    "Whisper": 0.15,
+    "Soft": 0.35,
+    "Clear": 0.55,
+}
+
 
 def app_home() -> Path:
     """Return Reezyn's private state directory.

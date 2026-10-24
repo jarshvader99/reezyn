@@ -102,9 +102,12 @@ class FakeAmbience:
         self.config = config
         self.running = False
         self.error = ""
+        self.fail = False
         self.ducked: list[bool] = []
 
     def start(self) -> bool:
+        if self.fail:
+            return False
         self.running = self.config.enabled
         return True
 
@@ -160,6 +163,44 @@ def test_service_ducks_the_presence_bed_under_speech(tmp_path, monkeypatch):
         assert service.set_ambience(False) is True
         assert service.status().ambience is False
         assert load_config(home).ambience.enabled is False
+    finally:
+        service.stop()
+
+
+def test_service_selects_a_presence_level(tmp_path, monkeypatch):
+    monkeypatch.setattr("reezyn.service.Ambience", FakeAmbience)
+    home = tmp_path / "state"
+    config = Config(
+        speech=SpeechConfig(),
+        narration=NarrationConfig(connectors=False),
+        ambience=AmbienceConfig(enabled=False),
+        agents=AgentsConfig(
+            claude=False,
+            codex=False,
+            gemini=False,
+            cursor=False,
+            opencode=False,
+            freebuff=False,
+        ),
+    )
+    service = ReezynService(config, home, speaker=FakeSpeaker())
+    service.start()
+    try:
+        assert service.set_ambience_level(0.15) is True
+        assert service.status().ambience is True
+        assert service.config.ambience.volume == 0.15
+        assert load_config(home).ambience.volume == 0.15
+
+        assert service.set_ambience_level(0.55) is True
+        assert service.config.ambience.volume == 0.55
+
+        assert service.set_ambience(False) is True
+        assert service.config.ambience.volume == 0.55
+
+        service.ambience.fail = True
+        assert service.set_ambience_level(0.35) is False
+        assert service.config.ambience.enabled is False
+        assert service.status().ambience is False
     finally:
         service.stop()
 
