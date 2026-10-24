@@ -201,8 +201,11 @@ narration queue resolve everything else from the selected voice. Kokoro ships
 voices for several more languages; English and Spanish have packs so far.
 
 ```bash
-uv run reezyn --voice em_alex      # Alex, Spanish
+uv run reezyn start --voice em_alex   # start with Alex, Spanish
 ```
+
+`--voice` is applied at startup, so stop the menu app before using it; while
+Reezyn is running, choose the voice from the menu instead.
 
 ## Configuration
 

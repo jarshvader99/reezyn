@@ -51,6 +51,10 @@ def test_spanish_cleaning_uses_spanish_words():
     assert " and " not in cleaned
 
 
+def test_language_packs_cover_the_same_phrases():
+    assert set(PACKS["en"].phrases) == set(PACKS["es"].phrases)
+
+
 def test_describe_tool_speaks_spanish():
     assert describe_tool("Read", {"file_path": "/a/b/session.ts"}, SPANISH) == "leyendo session.ts"
     assert describe_tool("str_replace", {"path": "src/auth.ts"}, SPANISH) == "actualizando auth.ts"
