@@ -62,6 +62,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="A calm, local narrator for coding-agent reasoning.",
     )
     sub = parser.add_subparsers(dest="command")
+    parser.set_defaults(voice=None, speed=None)
 
     start = sub.add_parser("start", help="Run the macOS menu-bar app")
     start.add_argument("--voice", help="Voice id, e.g. af_heart")

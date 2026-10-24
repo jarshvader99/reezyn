@@ -262,7 +262,8 @@ def compose_narration(
             ):
                 action = describe_tool(latest_tool.tool_name, latest_tool.tool_input)
                 if action and action not in excerpt.lower():
-                    excerpt = f"{excerpt.rstrip('.')} I'm {action}."
+                    terminal = "" if excerpt.endswith((".", "!", "?")) else "."
+                    excerpt = f"{excerpt}{terminal} I'm {action}."
             text = excerpt
             fingerprint = reasoning.fingerprint
             source_events = [reasoning]

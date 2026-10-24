@@ -57,7 +57,15 @@ def test_describe_tool_maps_common_actions():
 def test_compose_prefers_reasoning_and_respects_staleness():
     now = time.time()
     events = [
-        Event(agent="test", kind="reasoning", text="I'll inspect the middleware.", ts=now),
+        Event(
+            agent="test",
+            kind="reasoning",
+            text=(
+                "I'll inspect the middleware to see where the refresh token is "
+                "validated, then compare the token versions."
+            ),
+            ts=now,
+        ),
         Event(
             agent="test",
             kind="tool",
@@ -68,12 +76,30 @@ def test_compose_prefers_reasoning_and_respects_staleness():
     ]
     narration = compose_narration(events, NarrationConfig(connectors=False), now=now + 0.2)
     assert narration is not None
-    assert narration.text == "I'll inspect the middleware."
+    assert narration.text.startswith("I'll inspect the middleware")
+    assert "reading session.ts" not in narration.text
 
     stale = compose_narration(
         events, NarrationConfig(connectors=False, stale_after_s=1), now=now + 10
     )
     assert stale is None
+
+
+def test_compose_appends_action_to_very_short_reasoning():
+    now = time.time()
+    events = [
+        Event(agent="test", kind="reasoning", text="Let me check.", ts=now),
+        Event(
+            agent="test",
+            kind="tool",
+            tool_name="Read",
+            tool_input={"path": "session.ts"},
+            ts=now + 0.1,
+        ),
+    ]
+    narration = compose_narration(events, NarrationConfig(connectors=False), now=now + 0.2)
+    assert narration is not None
+    assert narration.text == "Let me check. I'm reading session.ts."
 
 
 def test_compose_falls_back_to_tool_actions():
