@@ -227,7 +227,6 @@ class ReezynMenuApp(rumps.App):
             return
         if self.service.speaker.ready:
             return
-        self.download_item.title = "Downloading…"
         self._download_thread = threading.Thread(
             target=self._download_worker, name="reezyn-download", daemon=True
         )
@@ -238,8 +237,6 @@ class ReezynMenuApp(rumps.App):
             self.service.download_voice_model()
         except Exception as exc:
             self._download_error = str(exc)
-        finally:
-            self.download_item.title = "Download voice model…"
 
     def _simulate(self, _sender: Any = None) -> None:
         self.service.simulate()
