@@ -7,6 +7,7 @@ agent's own reasoning, not to invent a new summary with another model.
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
 import threading
 import time
@@ -17,6 +18,8 @@ from typing import Any, Callable, Iterable
 
 from .config import NarrationConfig
 from .events import Event
+
+log = logging.getLogger("reezyn")
 
 FENCED_CODE = re.compile(r"```.*?```", re.DOTALL)
 INLINE_CODE = re.compile(r"`([^`]*)`")
@@ -540,11 +543,13 @@ class Narrator:
 
             ok = True
             if not error_blocked and not self._stop.is_set():
+                log.info("speaking: %s", narration.text)
                 try:
                     result = self._speak(narration.text)
                     ok = result is not False
                 except Exception as exc:  # keep the narrator alive for the session
                     ok = False
+                    log.warning("speech failed: %s", exc)
                     with self._lock:
                         self._last_error = f"{type(exc).__name__}: {exc}"
                         self._error_until = time.monotonic() + 15
