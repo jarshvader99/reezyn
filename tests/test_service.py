@@ -39,6 +39,10 @@ class FakeSpeaker:
     def stop(self) -> None:
         self.stopped = True
 
+    def reset_output(self) -> None:
+        self.output_resets = getattr(self, "output_resets", 0) + 1
+        self.stopped = True
+
     def preload(self) -> None:
         return
 
@@ -378,12 +382,16 @@ class FakeVoice:
     def __init__(self) -> None:
         self.speaking: list[bool] = []
         self.opened: list[bool] = []
+        self.restarts = 0
 
     def start(self) -> bool:
         return True
 
     def stop(self) -> None:
         return
+
+    def restart_microphone(self) -> None:
+        self.restarts += 1
 
     def set_speaking(self, speaking: bool) -> None:
         self.speaking.append(speaking)
@@ -471,6 +479,20 @@ def test_permission_event_opens_the_microphone_for_an_answer(tmp_path):
         assert _wait_for(lambda: bool(voice.opened))
         assert voice.opened == [True]
         assert "permission" in speaker.spoken[-1]
+    finally:
+        service.stop()
+
+
+def test_device_changes_reopen_the_microphone_and_the_output(tmp_path):
+    service, voice, speaker = _voice_service(tmp_path)
+    try:
+        service._input_device_changed(1)
+        assert voice.restarts == 1
+        assert service.device_epoch == 1
+
+        service._output_device_changed(2)
+        assert speaker.output_resets == 1
+        assert service.device_epoch == 2
     finally:
         service.stop()
 

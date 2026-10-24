@@ -307,6 +307,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     from .adapters.opencode import accessible as opencode_accessible
     from .adapters.opencode import opencode_db_path
     from .languages import pack_for_voice
+    from .system_audio import describe as describe_audio
     from .tts import model_paths
 
     home = app_home()
@@ -338,6 +339,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         "model_file": str(paths.model),
         "voices_file": str(paths.voices),
         "audio": audio,
+        "audio_devices": describe_audio(),
         "claude_hook": {
             "installed": is_installed("claude"),
             "settings": str(settings_path("claude")),
@@ -390,6 +392,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     print(f"  Voice        {config.speech.voice} ({language.name}) at {config.speech.speed:.2f}×")
     print(f"  Model        {'ready' if paths.ready else 'missing'} ({paths.model.name})")
     print(f"  Audio        {audio}")
+    print(f"  Devices      {report['audio_devices']}")
     print(f"  Claude hook  {'installed' if report['claude_hook']['installed'] else 'not installed'}  ({settings_path('claude')})")
     print(f"  Gemini hook  {'installed' if report['gemini_hook']['installed'] else 'not installed'}  ({settings_path('gemini')})")
     print(f"  Codex        {codex_count} rollout file(s) under {codex_root}")

@@ -29,6 +29,7 @@ from .narration import Narrator, select_excerpt
 from .recall import Recaller
 from .runtime import clear_running, write_running
 from .spool import SpoolWatcher
+from .system_audio import DeviceWatcher
 from .tts import KokoroSpeaker, download_models
 from .voice import VoiceSession, VoiceSnapshot
 
@@ -92,6 +93,12 @@ class ReezynService:
         # Set while a closing answer is being spoken, so the microphone opens
         # when speech ends rather than while Reezyn is still talking.
         self._voice_pending = ""
+        # Incremented whenever the system's default input or output changes, so
+        # the menu can refresh state that belongs to the old device.
+        self._device_epoch = 0
+        self._devices = DeviceWatcher(
+            self._input_device_changed, self._output_device_changed
+        )
 
         sources = {"generic"}
         if config.agents.claude:
@@ -117,6 +124,7 @@ class ReezynService:
             self._start_voice()
         if not self.ambience.start():
             log.warning("Presence bed did not start: %s", self.ambience.error)
+        self._devices.start()
         self.spool.start()
         for name, watcher in (
             ("Codex", self.codex),
@@ -144,6 +152,7 @@ class ReezynService:
         for watcher in (self.codex, self.cursor, self.opencode, self.freebuff):
             if watcher:
                 watcher.stop()
+        self._devices.stop()
         self.spool.stop()
         self.narrator.stop()
         if self.voice is not None:
@@ -227,6 +236,36 @@ class ReezynService:
         return self.voice.status() if self.voice is not None else None
 
     def _voice_changed(self, _snapshot: VoiceSnapshot | None = None) -> None:
+        self._changed()
+
+    @property
+    def device_epoch(self) -> int:
+        return self._device_epoch
+
+    def _input_device_changed(self, _device: int = 0) -> None:
+        self._device_epoch += 1
+        log.info("default input device changed")
+        voice = self.voice
+        if voice is not None and self.config.voice.enabled:
+            restart = getattr(voice, "restart_microphone", None)
+            if callable(restart):
+                restart()
+        self._changed()
+
+    def _output_device_changed(self, _device: int = 0) -> None:
+        self._device_epoch += 1
+        log.info("default output device changed")
+        # The presence bed owns its own PortAudio stream; close it before the
+        # speaker rebuilds PortAudio's device list, then reopen it on the new
+        # default device.
+        ambience_was_running = self.ambience.running
+        if ambience_was_running:
+            self.ambience.stop()
+        reset = getattr(self.speaker, "reset_output", None)
+        if callable(reset):
+            reset()
+        if ambience_was_running:
+            self.ambience.start()
         self._changed()
 
     def set_voice(self, voice: str) -> None:

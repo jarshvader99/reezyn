@@ -133,6 +133,37 @@ class VoiceSession:
             self._microphone.stop()
         self._notify()
 
+    def restart_microphone(self) -> None:
+        """Reopen input after the system's default microphone changes.
+
+        An AVAudioEngine keeps the device it was built with. Switching from
+        AirPods to the built-in microphone would otherwise leave Reezyn
+        listening to (or failing on) the old device, and an open AirPods input
+        also keeps those headphones in their low-quality hands-free mode.
+        """
+
+        with self._lock:
+            if not self._running or self._microphone is None:
+                return
+            rec = self._rec
+            self._rec = None
+            self._partial = ""
+            self._state = IDLE
+            self._error = ""
+            self._confirming = False
+            self._frames.clear()
+        if rec is not None:
+            rec.cancel()
+        try:
+            self._microphone.stop()
+            started = bool(self._microphone.start())
+        except Exception:
+            log.exception("could not reopen the microphone")
+            return
+        if started:
+            log.info("microphone reopened for the new default input")
+        self._notify()
+
     def _run(self) -> None:
         while True:
             with self._lock:

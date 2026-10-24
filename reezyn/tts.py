@@ -119,7 +119,20 @@ def _prepare_samples(audio: np.ndarray, sample_rate: int, volume: float) -> np.n
     peak = float(np.max(np.abs(samples)))
     if peak > 0:
         gain = min(gain, TARGET_PEAK / peak)
-    return (samples * gain).astype(np.float32, copy=False)
+    samples = (samples * gain).astype(np.float32, copy=False)
+    return _fade_edges(samples, sample_rate)
+
+
+def _fade_edges(samples: np.ndarray, sample_rate: int, seconds: float = 0.008) -> np.ndarray:
+    """A few milliseconds of fade so a stream never starts or stops mid-wave."""
+
+    length = min(int(max(1, sample_rate) * seconds), samples.size // 2)
+    if length <= 1:
+        return samples
+    ramp = np.linspace(0.0, 1.0, length, dtype=np.float32)
+    samples[:length] *= ramp
+    samples[-length:] *= ramp[::-1]
+    return samples
 
 
 def _dc_block(samples: np.ndarray, sample_rate: int, cutoff_hz: float = 35.0) -> np.ndarray:
@@ -236,6 +249,34 @@ class KokoroSpeaker:
             self._current_stop.set()
         self._stop_playback()
 
+    def reset_output(self) -> None:
+        """Drop any stream bound to the old default output device.
+
+        The next line opens a fresh stream, so it lands on whatever the system
+        now considers the default. PortAudio caches its device list when it
+        starts, so switching from AirPods to the speakers can leave it pointing
+        at an index that no longer exists until the library is rebuilt.
+        """
+
+        self._sounddevice_ok = None
+        with self._play_lock:
+            # Keep a new utterance from opening a stream while PortAudio is
+            # being rebuilt underneath it.
+            self._generation += 1
+            self._current_stop.set()
+            self._stop_playback()
+            self._refresh_portaudio()
+
+    @staticmethod
+    def _refresh_portaudio() -> None:
+        try:
+            import sounddevice as sd
+
+            sd._terminate()
+            sd._initialize()
+        except Exception:
+            log.debug("could not refresh PortAudio's device list", exc_info=True)
+
     def _produce(
         self,
         engine: Any,
@@ -301,8 +342,10 @@ class KokoroSpeaker:
             try:
                 return self._play_sounddevice(samples, sample_rate, stop)
             except Exception:
-                # PortAudio can disappear (device unplugged, remote session).
-                self._sounddevice_ok = False
+                # PortAudio can disappear when a device is unplugged or the
+                # default output switches. Retry it next time instead of
+                # falling back to afplay for the rest of the session.
+                self._sounddevice_ok = None
         return self._play_afplay(samples, sample_rate, stop)
 
     def _can_use_sounddevice(self) -> bool:

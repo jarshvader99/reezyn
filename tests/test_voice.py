@@ -61,15 +61,18 @@ class FakeEngine:
 
 class FakeMicrophone:
     def __init__(self) -> None:
-        self.started = False
-        self.stopped = False
+        self.running = False
+        self.start_calls = 0
+        self.stop_calls = 0
 
     def start(self) -> bool:
-        self.started = True
+        self.start_calls += 1
+        self.running = True
         return True
 
     def stop(self) -> None:
-        self.stopped = True
+        self.stop_calls += 1
+        self.running = False
 
 
 class FakeNarrator:
@@ -410,6 +413,29 @@ def test_an_expired_permission_window_forgets_the_question():
     harness.say("yes")
     assert harness.typed == ["yes"]
     assert harness.keys == ["return"]  # the conversation's own submit, not an allow
+
+
+def test_microphone_reopens_after_a_device_change():
+    harness = Harness()
+    harness.session.open_for_conversation()
+    assert harness.microphone.running is True
+
+    harness.session.restart_microphone()
+    assert harness.microphone.stop_calls == 1
+    assert harness.microphone.start_calls == 2
+    assert harness.microphone.running is True
+    # The old conversation window is not kept: the new device starts clean.
+    snapshot = harness.session.status()
+    assert snapshot.state == "idle"
+    assert snapshot.partial == ""
+
+
+def test_restarting_a_stopped_microphone_does_nothing():
+    harness = Harness()
+    harness.session.stop()
+    harness.session.restart_microphone()
+    assert harness.microphone.start_calls == 1  # only the original start
+    assert harness.microphone.stop_calls == 1
 
 
 def test_cancel_leaves_the_draft_alone():

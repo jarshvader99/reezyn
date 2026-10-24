@@ -17,6 +17,7 @@ from .config import AMBIENCE_LEVELS, CONFIG_ENV, SPEEDS, Config, app_home, load_
 from .languages import LANGUAGES
 from .service import ReezynService
 from .status_icon import icon_alpha, reduce_motion, seedling_image
+from .system_audio import VOLUME_LEVELS, output_volume, set_output_volume
 
 log = logging.getLogger("reezyn")
 
@@ -43,6 +44,9 @@ class ReezynMenuApp(rumps.App):
         self._last_status = ""
         self._permissions: dict[str, str] = {}
         self._permissions_checked = 0.0
+        self._system_volume: int | None = None
+        self._volume_checked = 0.0
+        self._volume_epoch = -1
         self._download_error = ""
         self._download_thread: threading.Thread | None = None
 
@@ -86,6 +90,15 @@ class ReezynMenuApp(rumps.App):
             item = rumps.MenuItem(label, callback=self._make_speed_callback(speed))
             self.pace_items[label] = item
             pace_menu.add(item)
+
+        self.volume_menu = rumps.MenuItem("System volume")
+        self.volume_items: dict[int, rumps.MenuItem] = {}
+        for level in VOLUME_LEVELS:
+            item = rumps.MenuItem(
+                f"{level}%", callback=self._make_volume_callback(level)
+            )
+            self.volume_items[level] = item
+            self.volume_menu.add(item)
 
         self.ambience_menu = rumps.MenuItem("Presence bed")
         self.ambience_off_item = rumps.MenuItem("Off", callback=self._disable_ambience)
@@ -176,6 +189,7 @@ class ReezynMenuApp(rumps.App):
             rumps.separator,
             voice_menu,
             pace_menu,
+            self.volume_menu,
             self.ambience_menu,
             self.banter_item,
             self.recall_item,
@@ -280,6 +294,7 @@ class ReezynMenuApp(rumps.App):
         self.conversation_item.state = 1 if self.service.config.voice.conversation else 0
         self.confirm_item.state = 1 if self.service.config.voice.confirm_send else 0
         self._refresh_permissions()
+        self._refresh_system_volume()
         self.download_item.hidden = status.model_ready
         if status.state != self._last_status:
             self._refresh_recent()
@@ -408,6 +423,35 @@ class ReezynMenuApp(rumps.App):
             self._refresh_checks()
 
         return choose
+
+    def _make_volume_callback(self, level: int) -> Any:
+        def choose(_sender: Any = None) -> None:
+            if set_output_volume(level):
+                self._system_volume = level
+                self._refresh_system_volume(force=True)
+
+        return choose
+
+    def _refresh_system_volume(self, force: bool = False) -> None:
+        now = time.monotonic()
+        epoch = self.service.device_epoch
+        if (
+            not force
+            and epoch == self._volume_epoch
+            and now - self._volume_checked < 10.0
+        ):
+            return
+        self._volume_epoch = epoch
+        self._volume_checked = now
+        self._system_volume = output_volume()
+        volume = self._system_volume
+        if volume is None:
+            for item in self.volume_items.values():
+                item.state = 0
+            return
+        closest = min(self.volume_items, key=lambda level: abs(level - volume))
+        for level, item in self.volume_items.items():
+            item.state = 1 if level == closest else 0
 
     def _install_claude(self, _sender: Any = None) -> None:
         self._install_agent(

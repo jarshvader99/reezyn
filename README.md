@@ -220,6 +220,8 @@ Claude Code and Freebuff get.
   Alex, Santa), or French (Siwis). The selected voice also selects the language
   Reezyn speaks around the agent's words.
 - **Pace** — Calm (0.84×), Natural (0.94×), Brisk (1.04×).
+- **System volume** — sets the Mac's output volume to 20%, 40%, 60%, 80%, or
+  100%. The check mark follows the current output device.
 - **Presence bed** — generated room tone with Off, Whisper, Soft, and Clear
   levels; ducks while narration plays.
 - **Lull banter** — a short line when a tool call runs long, so a quiet stretch
@@ -272,6 +274,20 @@ uv run reezyn start --voice ff_siwis  # start with Siwis, French
 
 `--voice` is applied at startup, so stop the menu app before using it; while
 Reezyn is running, choose the voice from the menu instead.
+
+## Audio devices
+
+Reezyn follows the Mac's default input and output instead of pinning the
+devices it started with. When you switch from AirPods to the built-in speakers
+and microphone, the microphone engine is rebuilt on the new input and the next
+line opens its output stream on the new default. That also releases a Bluetooth
+headset from its low-quality hands-free mode, which an open input otherwise
+keeps it in.
+
+A line that is already playing is stopped when the output changes, because its
+stream belongs to the old device; narration continues with the next line.
+Switching the input cancels any half-heard utterance. `reezyn doctor` prints the
+current device ids and output volume.
 
 ## Presence bed
 
@@ -625,3 +641,9 @@ packaging/       PyInstaller spec, icon, entitlements, build/sign script
 - Voice input requires the three TCC grants above. The DMG carries the
   microphone and speech usage strings plus the audio-input entitlement, but
   Accessibility is always a manual switch.
+- Audio device changes are noticed within about two seconds. A narration line
+  that is mid-flight when the output switches is cut rather than moved, and an
+  utterance in progress when the input switches is discarded.
+- Bluetooth headsets can still sound thin while their microphone is in use: the
+  system itself switches them to hands-free mode. Picking the built-in
+  microphone (or another input) avoids that.
