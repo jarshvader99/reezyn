@@ -424,6 +424,43 @@ wheels = [
 ]
 
 [[package]]
+name = "pyobjc-framework-applicationservices"
+version = "12.2.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyobjc-core" },
+    { name = "pyobjc-framework-cocoa" },
+    { name = "pyobjc-framework-coretext" },
+    { name = "pyobjc-framework-quartz" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/29/40/b792ecc88a9fa639318509c127f0b153cd334bd27b47df373f4b7362a36d/pyobjc_framework_applicationservices-12.2.2.tar.gz", hash = "sha256:0bcc09531d5854598fd74706d999e4ae3b7c503204d318910d02eba30e8eecef", size = 109668, upload-time = "2026-08-11T19:43:45.347Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/76/84/50b6ef800cb7d2c4e0e081dbc536023bbf71010894b5a724aff2ee2b756c/pyobjc_framework_applicationservices-12.2.2-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:82275ea56be975ee84fafdb340dcfee6b5289422c3f674c1982d3fcd47ba68c9", size = 32703, upload-time = "2026-08-11T19:30:55.803Z" },
+    { url = "https://files.pythonhosted.org/packages/00/ed/9d85751400f1cd23d71c824a57352ec4d216a8728255dc00c032c431d3ad/pyobjc_framework_applicationservices-12.2.2-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:5506bd6b5268a97fcb79b5b021f6cbbaaf5cdff3ec87094d8870268d8cf096ed", size = 32765, upload-time = "2026-08-11T19:30:56.696Z" },
+    { url = "https://files.pythonhosted.org/packages/b1/9d/fe660a822cc66a4261227b1597855c802b04dee56e5c8c153b9d5e6bcf0d/pyobjc_framework_applicationservices-12.2.2-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:3b5693a377480cf127caa1c8c835b8620896971029c545d99d01aa31a2c38159", size = 32787, upload-time = "2026-08-11T19:30:57.52Z" },
+    { url = "https://files.pythonhosted.org/packages/18/8c/deec4cdf8bc7b21bc2fb9e0e25e3cf99acb645d46207e8e6298a70b7f310/pyobjc_framework_applicationservices-12.2.2-cp313-cp313t-macosx_10_13_universal2.whl", hash = "sha256:93ba63aad6607f369c1b38bf91306731da6306fdde5eb67afa407b3f8a87dda7", size = 33043, upload-time = "2026-08-11T19:30:58.669Z" },
+]
+
+[[package]]
+name = "pyobjc-framework-avfoundation"
+version = "12.2.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyobjc-core" },
+    { name = "pyobjc-framework-cocoa" },
+    { name = "pyobjc-framework-coreaudio" },
+    { name = "pyobjc-framework-coremedia" },
+    { name = "pyobjc-framework-quartz" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/19/48/917494d86ea02372e922bc96ffb76a6161f847db21ae7885fe7e0c3d7755/pyobjc_framework_avfoundation-12.2.2.tar.gz", hash = "sha256:5b9f33bf382af9a84b2394c98e3603a8abf03f29b0d2036e29698806ea22851a", size = 411684, upload-time = "2026-08-11T19:43:51.652Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/97/4f/9d53f29d06f57de1398b56a0e535a3c9e85ca3ecb83607b83cafce318df6/pyobjc_framework_avfoundation-12.2.2-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:6a1baf030b9c7997b99e38450e84ea7398c8ca9e762660ba9019c20837e733a0", size = 85543, upload-time = "2026-08-11T19:31:36.611Z" },
+    { url = "https://files.pythonhosted.org/packages/33/8b/ea58df10fcf060b0a8a3fb56cbc0b06722b62cab6ef013b0ef346735761b/pyobjc_framework_avfoundation-12.2.2-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:248fd714f7a63535577cde3a5bd097f1e309011586b799c110fb9bab27e88f55", size = 85590, upload-time = "2026-08-11T19:31:37.654Z" },
+    { url = "https://files.pythonhosted.org/packages/90/ef/ab3b86852704afd33de70f803c814af80a1d84b7dfafc51404d315d0921f/pyobjc_framework_avfoundation-12.2.2-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:73f34a9e7a5cc0ec6cc496ee10c133d14c4ddc768e17f09c684f95ac5b127408", size = 85625, upload-time = "2026-08-11T19:31:38.576Z" },
+    { url = "https://files.pythonhosted.org/packages/ad/c1/eda88125b7e4ae32dea2c831c5ab92705502355c80ce3d35e8eb8615d555/pyobjc_framework_avfoundation-12.2.2-cp313-cp313t-macosx_10_13_universal2.whl", hash = "sha256:ca4976b18bee82142655b9dc1d6c0cd665627d9ef413694434e2ba5a187443f4", size = 86073, upload-time = "2026-08-11T19:31:39.533Z" },
+]
+
+[[package]]
 name = "pyobjc-framework-cocoa"
 version = "12.2.2"
 source = { registry = "https://pypi.org/simple" }
@@ -436,6 +473,87 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/fd/2f/b67e73d8bc367e03fe7861cd9c49fff9dcfa6db83bc0630c0adcfb25b7fa/pyobjc_framework_cocoa-12.2.2-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:e106f395531e67694376b0f1184612cbeea3ec8b9bf56b55ef41d026171d2a2d", size = 388117, upload-time = "2026-08-11T19:32:43.161Z" },
     { url = "https://files.pythonhosted.org/packages/db/e1/5d9b04ebb60042b9cb49adc2d33115e2f2c2e4ff7d548017bfaff8b7f536/pyobjc_framework_cocoa-12.2.2-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:600b1723184ca094931330e79355274949965460e23de38628d601b5a967baf9", size = 388181, upload-time = "2026-08-11T19:32:44.537Z" },
     { url = "https://files.pythonhosted.org/packages/b4/25/2a343357d5fe09bbe9c0e294dc03450866a0d6c1792fad36b6bcc00174c0/pyobjc_framework_cocoa-12.2.2-cp313-cp313t-macosx_10_13_universal2.whl", hash = "sha256:875f2aad73963faa81a6b36ae674fd494a4658d6d999e1075e0e2aca3d2391df", size = 392275, upload-time = "2026-08-11T19:32:45.631Z" },
+]
+
+[[package]]
+name = "pyobjc-framework-coreaudio"
+version = "12.2.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyobjc-core" },
+    { name = "pyobjc-framework-cocoa" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0e/71/bfbf1dffe9f08f31b444685e9d194e25cc3506db9f7a9d6ffdb56cc4408e/pyobjc_framework_coreaudio-12.2.2.tar.gz", hash = "sha256:880214f7328d6502a0c60ee744fa1eabe77a0d0c9ae276009453b69474eacf38", size = 79573, upload-time = "2026-08-11T19:44:07.04Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/10/75/556b8f887a8b68c3125aa64e8281c26cce42d5e7338b90ef5474d8a519b1/pyobjc_framework_coreaudio-12.2.2-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:2217911fb21cd6d8002d0895f6353a15fd6ce2c4e191b3f4cb6e16ad7a428591", size = 34980, upload-time = "2026-08-11T19:33:10.982Z" },
+    { url = "https://files.pythonhosted.org/packages/f0/89/bd18309c59eaaf694253ca932844743d6429023b99260684181367ba0564/pyobjc_framework_coreaudio-12.2.2-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:7222c2b2317a6a350e08239b3b7ba7b4570b06ec8697b9bc53793bd6f85e3134", size = 35242, upload-time = "2026-08-11T19:33:11.787Z" },
+    { url = "https://files.pythonhosted.org/packages/ac/2a/d16c2f043c4e12274aa9c4444f9e00abc3fb2c5155a3b12b097eeffb6cdd/pyobjc_framework_coreaudio-12.2.2-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:a19cc902a1eadb1b30d191d008e960768aaeeb7c027001820ef0cc01a4791422", size = 35271, upload-time = "2026-08-11T19:33:13.053Z" },
+    { url = "https://files.pythonhosted.org/packages/63/84/3c05b951ff16525bf32d6df1d4fe436df25ea93581ff257d4693205b4030/pyobjc_framework_coreaudio-12.2.2-cp313-cp313t-macosx_10_13_universal2.whl", hash = "sha256:4cdc2be16ee481dea8ba1bad43c657bc02fcaeeb4a502d64e6bc28719b7cc103", size = 38026, upload-time = "2026-08-11T19:33:13.851Z" },
+]
+
+[[package]]
+name = "pyobjc-framework-coremedia"
+version = "12.2.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyobjc-core" },
+    { name = "pyobjc-framework-cocoa" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f0/12/0b3896ea04f0fbbe3f2cb37802cadce334f9aef204d911a81934013eba8c/pyobjc_framework_coremedia-12.2.2.tar.gz", hash = "sha256:fe9f972438674893e941e9db5b62f8ba99a33f94a7f1c2ce49b14416f154cd10", size = 98580, upload-time = "2026-08-11T19:44:11.651Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/38/18/5931478200f803db87be5cd6cb9af492d9ef2f2ac07cbfe019ecfa97db5a/pyobjc_framework_coremedia-12.2.2-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:f6f8150428e6ae40d6b97714f6933b8c4322f3fb94de9bfcb206d00cb021f464", size = 29518, upload-time = "2026-08-11T19:33:49.074Z" },
+    { url = "https://files.pythonhosted.org/packages/cd/26/de907d6ead970916b39787e52bed679945328161f2abac533515b2ac8934/pyobjc_framework_coremedia-12.2.2-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:84f5deee8d366bf73069a0525509637aa578ccd0e6688923b09999a8bc3077a8", size = 29421, upload-time = "2026-08-11T19:33:49.848Z" },
+    { url = "https://files.pythonhosted.org/packages/36/65/6fe4c97d3442abda385f8798becd5bc82b73b4dfd979194e5850c5246dea/pyobjc_framework_coremedia-12.2.2-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:c4430bda640c5427bf572f8b2a3281d8f4f16b962a499251cf553a0979d88a4e", size = 29431, upload-time = "2026-08-11T19:33:50.621Z" },
+    { url = "https://files.pythonhosted.org/packages/5f/32/3c023f6b26fffb8c7d07cd6327e892bd546da7cfa8b3bbdaed113f5a59d3/pyobjc_framework_coremedia-12.2.2-cp313-cp313t-macosx_10_13_universal2.whl", hash = "sha256:b80285a65465a5340f5806e9e293b46e22ac6f9c3132e79c8139a79b53b3f8c2", size = 29496, upload-time = "2026-08-11T19:33:51.396Z" },
+]
+
+[[package]]
+name = "pyobjc-framework-coretext"
+version = "12.2.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyobjc-core" },
+    { name = "pyobjc-framework-cocoa" },
+    { name = "pyobjc-framework-quartz" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6d/66/405006d3502ffcd3bc69e0b7249ab7c05a5b43a07fa3959ce6b2a84f3278/pyobjc_framework_coretext-12.2.2.tar.gz", hash = "sha256:64ddc02303217028e32e22c7cc00b5112d84e9d9a67c37d00c2e54f9172284ab", size = 97658, upload-time = "2026-08-11T19:44:17.207Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8e/27/248f417d419520d9ff9997b37012e41cfb1b4bd35650b15fbd7f1f3c4749/pyobjc_framework_coretext-12.2.2-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:77a379ff47c599cb2bab918eb75680d30d950692ec19d67b734d11ded090b4e1", size = 30023, upload-time = "2026-08-11T19:34:41.111Z" },
+    { url = "https://files.pythonhosted.org/packages/1c/88/e85a9268285fc0c28284dbdc869a27f5d3f2e436d2838221a6704b4f8eee/pyobjc_framework_coretext-12.2.2-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:a69611de569d92776e6391ca25492a5bbb4a05ba744006349e377a4fc5f7c8a5", size = 30120, upload-time = "2026-08-11T19:34:41.94Z" },
+    { url = "https://files.pythonhosted.org/packages/6c/6d/e1a4c572c867bd40b705687c741a747083c6dbc63bd797bb6ed5c5108f6e/pyobjc_framework_coretext-12.2.2-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:dbd0f288a859e359ee8e7ccf45bc2c489f38ae1087c21468b61d700433e0c91b", size = 30117, upload-time = "2026-08-11T19:34:42.88Z" },
+    { url = "https://files.pythonhosted.org/packages/aa/de/ffdf698b69a2b26af73d32ba1bcc06bc6efc0699f5936995017a66c42efb/pyobjc_framework_coretext-12.2.2-cp313-cp313t-macosx_10_13_universal2.whl", hash = "sha256:1324d91305022b1de03a12cf82de2b42c87dafe9b12cde6237253658a8637139", size = 30663, upload-time = "2026-08-11T19:34:43.635Z" },
+]
+
+[[package]]
+name = "pyobjc-framework-quartz"
+version = "12.2.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyobjc-core" },
+    { name = "pyobjc-framework-cocoa" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/35/b1/426a37c7ae37280b3ffca2571fb48f211946aee2f4ca31a603ed1943c4a7/pyobjc_framework_quartz-12.2.2.tar.gz", hash = "sha256:810f97b210cfd93704d240860286dfd6df09f9f1c52525fc5c2166723aea3f9e", size = 3218295, upload-time = "2026-08-11T19:45:15.189Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b9/e8/16d07170d4e1bd182a8e6084abdf283fac90979384b8f53107be9eb110e6/pyobjc_framework_quartz-12.2.2-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:4b01e325b0cdc121e78730dde9756e971b23069bf141cd62efbcaac76d7b6dbb", size = 218008, upload-time = "2026-08-11T19:40:23.36Z" },
+    { url = "https://files.pythonhosted.org/packages/ed/e4/8be95d2ff850f82fb55b44c63333a00a920bf8a73642e7d9c2f3638a26d2/pyobjc_framework_quartz-12.2.2-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:7f668979d0c7320bf8f7ed6e030da578f93ab0f5dd619b295ec735cd8d5faa34", size = 219003, upload-time = "2026-08-11T19:40:24.425Z" },
+    { url = "https://files.pythonhosted.org/packages/bb/ae/b515852dbe491171f2f2e2eb7739588a5eb7f36720a739545337b8c0d706/pyobjc_framework_quartz-12.2.2-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:0ec9751904ef975bf0789d760dc4fadcb400edc4ffe4a736eb54971968babe5c", size = 219404, upload-time = "2026-08-11T19:40:25.461Z" },
+    { url = "https://files.pythonhosted.org/packages/ff/5f/c7ee66f4483385396d91f65036c62f3dd20bccaa07354643ef17b259aa75/pyobjc_framework_quartz-12.2.2-cp313-cp313t-macosx_10_13_universal2.whl", hash = "sha256:63f6f0f3233dcf650aac1374781e78961b0b17b33e3351953bacf8bd0c430593", size = 224462, upload-time = "2026-08-11T19:40:26.647Z" },
+]
+
+[[package]]
+name = "pyobjc-framework-speech"
+version = "12.2.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyobjc-core" },
+    { name = "pyobjc-framework-cocoa" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/73/40/c917d42f6050df8c4e11f314e8a955286a5760c4d806dc944f444ba53afc/pyobjc_framework_speech-12.2.2.tar.gz", hash = "sha256:b97cd8e5663c6ea0960d38707698b07b935cf66210aafad567971364f78206a7", size = 28000, upload-time = "2026-08-11T19:45:31.782Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/66/af/f0f18b1b75ede53e09d88eb1fc56d3221f1d4b31b6aca81c05227cf9163b/pyobjc_framework_speech-12.2.2-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:18936ad5f224c52e416dcbb3a571c378c9b99ff5dc0ba618e3eabe6e12856f9f", size = 9284, upload-time = "2026-08-11T19:42:10.473Z" },
+    { url = "https://files.pythonhosted.org/packages/7e/78/ea3bd94d962986f6af614acdb49aba9555bbb720f416c8aa3981ab7c12db/pyobjc_framework_speech-12.2.2-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:4cf89a7b60f868f321373f77908bd2ce0641b6c61e652da7b43aaf9160e4e27f", size = 9293, upload-time = "2026-08-11T19:42:11.219Z" },
+    { url = "https://files.pythonhosted.org/packages/14/a6/2e5a6a0ec4f83bd72955559d481757d1db96863609c11828226dd5f78211/pyobjc_framework_speech-12.2.2-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:25052229b8fb694578fd56a873b02e6b319c48bce65c1fe17e79ae1a62386235", size = 9311, upload-time = "2026-08-11T19:42:12.086Z" },
+    { url = "https://files.pythonhosted.org/packages/4f/ed/f2dd30d45cd84d92367b52ddff7aec56dd259d7e6dd013c71026f2751ce2/pyobjc_framework_speech-12.2.2-cp313-cp313t-macosx_10_13_universal2.whl", hash = "sha256:aba7583063e73e67322ace9b3b6b645967740bff4d111d592abf4a546a1510a4", size = 9470, upload-time = "2026-08-11T19:42:12.992Z" },
 ]
 
 [[package]]
@@ -471,6 +589,10 @@ dependencies = [
     { name = "kokoro-onnx" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "pyobjc-framework-applicationservices" },
+    { name = "pyobjc-framework-avfoundation" },
+    { name = "pyobjc-framework-quartz" },
+    { name = "pyobjc-framework-speech" },
     { name = "rumps" },
     { name = "sounddevice" },
 ]
@@ -485,6 +607,10 @@ dev = [
 requires-dist = [
     { name = "kokoro-onnx", specifier = "==0.6.1" },
     { name = "numpy", specifier = ">=1.26" },
+    { name = "pyobjc-framework-applicationservices", specifier = ">=12.2.2" },
+    { name = "pyobjc-framework-avfoundation", specifier = ">=12.2.2" },
+    { name = "pyobjc-framework-quartz", specifier = ">=12.2.2" },
+    { name = "pyobjc-framework-speech", specifier = ">=12.2.2" },
     { name = "rumps", specifier = ">=0.4.0" },
     { name = "sounddevice", specifier = ">=0.5" },
 ]

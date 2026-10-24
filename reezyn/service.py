@@ -25,11 +25,12 @@ from .events import Event
 from .installers import InstallResult, install_hooks, is_installed
 from .languages import pack_for_voice
 from .ledger import LedgerStore
-from .narration import Narrator
+from .narration import Narrator, select_excerpt
 from .recall import Recaller
 from .runtime import clear_running, write_running
 from .spool import SpoolWatcher
 from .tts import KokoroSpeaker, download_models
+from .voice import VoiceSession, VoiceSnapshot
 
 log = logging.getLogger("reezyn")
 
@@ -87,6 +88,10 @@ class ReezynService:
             pack=pack_for_voice(config.speech.voice),
         )
         self._last_project = ""
+        self.voice: VoiceSession | None = None
+        # Set while a closing answer is being spoken, so the microphone opens
+        # when speech ends rather than while Reezyn is still talking.
+        self._voice_pending = ""
 
         sources = {"generic"}
         if config.agents.claude:
@@ -108,6 +113,8 @@ class ReezynService:
             self._started = True
         write_running(self.home)
         self.narrator.start()
+        if self.config.voice.enabled:
+            self._start_voice()
         if not self.ambience.start():
             log.warning("Presence bed did not start: %s", self.ambience.error)
         self.spool.start()
@@ -139,6 +146,8 @@ class ReezynService:
                 watcher.stop()
         self.spool.stop()
         self.narrator.stop()
+        if self.voice is not None:
+            self.voice.stop()
         self.ambience.stop()
         self.speaker.stop()
         clear_running(self.home)
@@ -178,6 +187,47 @@ class ReezynService:
 
     def skip(self) -> None:
         self.narrator.skip()
+
+    # -- voice input -------------------------------------------------------
+
+    def _start_voice(self) -> bool:
+        if self.voice is None:
+            self.voice = VoiceSession(
+                self.config.voice,
+                narrator=self.narrator,
+                on_change=self._voice_changed,
+            )
+        return self.voice.start()
+
+    def set_voice_input(self, enabled: bool) -> bool:
+        self.config.voice.enabled = enabled
+        if enabled:
+            ok = self._start_voice()
+        else:
+            if self.voice is not None:
+                self.voice.stop()
+            ok = True
+        with self._lock:
+            self._voice_pending = ""
+        self.config.save(self.home)
+        self._changed()
+        return ok
+
+    def set_conversation(self, enabled: bool) -> None:
+        self.config.voice.conversation = enabled
+        self.config.save(self.home)
+        self._changed()
+
+    def set_confirm_send(self, enabled: bool) -> None:
+        self.config.voice.confirm_send = enabled
+        self.config.save(self.home)
+        self._changed()
+
+    def voice_snapshot(self) -> VoiceSnapshot | None:
+        return self.voice.status() if self.voice is not None else None
+
+    def _voice_changed(self, _snapshot: VoiceSnapshot | None = None) -> None:
+        self._changed()
 
     def set_voice(self, voice: str) -> None:
         self.config = with_voice(self.config, voice)
@@ -365,6 +415,19 @@ class ReezynService:
 
     def _on_speaking(self, speaking: bool) -> None:
         self.ambience.set_ducked(speaking)
+        voice = self.voice
+        if voice is None:
+            return
+        voice.set_speaking(speaking)
+        if speaking:
+            return
+        with self._lock:
+            pending = self._voice_pending
+            self._voice_pending = ""
+        if pending:
+            # The agent's turn is over and its answer has been spoken: hand the
+            # conversation back to the developer without another wake word.
+            voice.open_for_conversation(permission=(pending == "permission"))
 
     def _on_event(self, event: Event) -> None:
         self._submit_event(event)
@@ -386,7 +449,73 @@ class ReezynService:
                 line = ""
             if line:
                 self.narrator.announce(line)
+        if event.kind == "closing":
+            self._offer_conversation(event, permission=False)
+        elif event.kind == "permission":
+            self._offer_conversation(event, permission=True)
         self.narrator.submit(event)
+
+    def _offer_conversation(self, event: Event, permission: bool) -> None:
+        """Speak the agent's last words, then open the microphone for an answer."""
+
+        voice = self.voice
+        if voice is None or not self.config.voice.enabled:
+            return
+        if not self.config.voice.conversation:
+            return
+
+        # If the developer is already mid-sentence, their words win: don't talk
+        # over them or reset the draft they are dictating.
+        snapshot = voice.status()
+        if snapshot is not None and snapshot.state == "listening" and snapshot.partial:
+            return
+
+        pack = pack_for_voice(self.config.speech.voice)
+        text = " ".join(event.text.split())
+        if permission and not text:
+            agent = event.agent.replace("-", " ").title() or "The agent"
+            text = f"{agent} needs your permission to run a tool. Say allow or deny."
+        line = ""
+        if text:
+            line = select_excerpt(
+                text,
+                self.config.voice.max_answer_words,
+                0 if permission else 2,
+                pack,
+            )
+        if not line:
+            voice.open_for_conversation(permission=permission)
+            return
+
+        with self._lock:
+            self._voice_pending = "permission" if permission else "closing"
+        self.narrator.announce(line)
+        # A paused narrator, a missing voice model, or a speech error would
+        # never report the end of speech, so open the microphone directly.
+        if self.narrator.is_paused or not self.speaker.ready:
+            with self._lock:
+                self._voice_pending = ""
+            voice.open_for_conversation(permission=permission)
+            return
+        threading.Thread(
+            target=self._watch_pending_voice,
+            args=(3.0 + len(line.split()) / 4.0,),
+            name="reezyn-voice-open",
+            daemon=True,
+        ).start()
+
+    def _watch_pending_voice(self, delay: float) -> None:
+        """Open the microphone if an answer was never actually spoken."""
+
+        time.sleep(max(1.0, delay))
+        with self._lock:
+            pending = self._voice_pending
+            if not pending or self.narrator.is_speaking:
+                return
+            self._voice_pending = ""
+        voice = self.voice
+        if voice is not None:
+            voice.open_for_conversation(permission=(pending == "permission"))
 
     def _changed(self) -> None:
         with self._lock:

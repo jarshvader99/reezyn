@@ -95,6 +95,7 @@ ENGLISH_PHRASES = {
     "recap_decided": "It concluded: {text}.",
     "recap_last": "Last action: {action}.",
     "recap_empty": "Nothing to recap in this project yet.",
+    "send_prompt": "Ready to send it? Say send, or keep going.",
 }
 
 SPANISH_PHRASES = {
@@ -149,6 +150,7 @@ SPANISH_PHRASES = {
     "recap_decided": "Concluyó: {text}.",
     "recap_last": "Última acción: {action}.",
     "recap_empty": "Todavía no hay nada que resumir en este proyecto.",
+    "send_prompt": "¿Lo envío? Di enviar, o sigue hablando.",
 }
 
 FRENCH_PHRASES = {
@@ -203,6 +205,7 @@ FRENCH_PHRASES = {
     "recap_decided": "Il a conclu : {text}.",
     "recap_last": "Dernière action : {action}.",
     "recap_empty": "Rien à résumer dans ce projet pour l'instant.",
+    "send_prompt": "Je l'envoie ? Dites envoyer, ou continuez.",
 }
 
 ENGLISH = LanguagePack(

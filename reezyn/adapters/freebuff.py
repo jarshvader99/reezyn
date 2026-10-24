@@ -379,9 +379,48 @@ def extract_freebuff_blocks(
                 for index, block in enumerate(local)
                 if not block.commentary or index == keep
             ]
+        closing = _closing_text(message, blocks)
+        if closing:
+            # A completed turn that ends in user-facing text: this is the
+            # moment an agent is waiting for an answer. The same text may have
+            # been kept as commentary above, so don't let Reezyn say it twice.
+            local = [
+                block
+                for block in local
+                if not (block.commentary and block.event.text == closing)
+            ]
+            local.append(
+                _Block(
+                    key=f"{message_id}:closing",
+                    event=Event(
+                        agent="freebuff",
+                        kind="closing",
+                        text=closing,
+                        session_id=session_id,
+                        project=project,
+                        ts=ts,
+                    ),
+                )
+            )
         out.extend(local)
 
     return out
+
+
+def _closing_text(message: dict[str, Any], blocks: list[Any]) -> str:
+    """The final answer of a completed message, or "" when it is still working."""
+
+    if not message.get("isComplete") or not blocks:
+        return ""
+    last = blocks[-1]
+    if not isinstance(last, dict):
+        return ""
+    if str(last.get("type") or "").lower() != "text":
+        return ""
+    if str(last.get("textType") or "text").lower() in REASONING_TEXT_TYPES:
+        return ""
+    content = last.get("content")
+    return content.strip() if isinstance(content, str) and content.strip() else ""
 
 
 def _user_text(message: dict[str, Any]) -> str:

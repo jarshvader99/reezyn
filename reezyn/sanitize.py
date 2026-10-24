@@ -70,6 +70,13 @@ def sanitize_hook_payload(agent: str, payload: dict[str, Any]) -> dict[str, Any]
     if isinstance(prompt, str) and prompt.strip():
         out["prompt"] = SECRET_VALUE.sub("[redacted]", prompt)[:4000]
 
+    # Stop/AfterAgent carry the final answer, and Notification carries the
+    # permission prompt Reezyn can read aloud and answer by voice.
+    for key in ("prompt_response", "message", "title", "notification_type"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            out[key] = SECRET_VALUE.sub("[redacted]", value)[:4000]
+
     return out
 
 

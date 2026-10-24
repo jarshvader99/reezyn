@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from ..events import Event
-from ..transcripts import JsonlTail
+from ..transcripts import JsonlTail, read_jsonl_tail
 
 # Enough to include the last few turns without re-reading a long session.
 INITIAL_TAIL_BYTES = 512 * 1024
@@ -35,6 +35,36 @@ class ClaudeHookAdapter:
                     agent="claude",
                     kind="prompt",
                     text=prompt,
+                    session_id=session_id,
+                    project=project,
+                )
+            ]
+
+        if event_name == "Stop":
+            # The turn is over: this is what opens the mic for an answer.
+            transcript_path = str(payload.get("transcript_path") or "")
+            text = ""
+            if transcript_path:
+                text = self._final_text(Path(transcript_path))
+            return [
+                Event(
+                    agent="claude",
+                    kind="closing",
+                    text=text,
+                    session_id=session_id,
+                    project=project,
+                )
+            ]
+
+        if event_name == "Notification":
+            message = str(payload.get("message") or payload.get("title") or "").strip()
+            if not message or not _mentions_permission(message):
+                return []
+            return [
+                Event(
+                    agent="claude",
+                    kind="permission",
+                    text=message,
                     session_id=session_id,
                     project=project,
                 )
@@ -84,6 +114,15 @@ class ClaudeHookAdapter:
                 return text
         return ""
 
+    def _final_text(self, path: Path) -> str:
+        """The last thing the assistant actually said, not what it was thinking."""
+
+        for record in reversed(read_jsonl_tail(path)):
+            text = assistant_final_text(record)
+            if text:
+                return text
+        return ""
+
 
 def assistant_text(record: dict[str, Any]) -> str:
     """Extract the last useful assistant-authored block from a transcript line."""
@@ -122,6 +161,36 @@ def assistant_text(record: dict[str, Any]) -> str:
     if thinking_blocks:
         return thinking_blocks[-1]
     return ""
+
+
+def assistant_final_text(record: dict[str, Any]) -> str:
+    """Only user-facing text; thinking blocks are never spoken as a closing."""
+
+    if record.get("isMeta") or record.get("type") != "assistant":
+        return ""
+    message = record.get("message")
+    if not isinstance(message, dict):
+        message = record
+    content = message.get("content")
+    if isinstance(content, str):
+        return content.strip()
+    if not isinstance(content, list):
+        return ""
+    texts: list[str] = []
+    for block in content:
+        if not isinstance(block, dict) or block.get("type") != "text":
+            continue
+        value = block.get("text")
+        if isinstance(value, str) and value.strip():
+            texts.append(value.strip())
+    return texts[-1] if texts else ""
+
+
+def _mentions_permission(message: str) -> bool:
+    lowered = message.lower()
+    return any(
+        word in lowered for word in ("permission", "approve", "approval", "allow")
+    )
 
 
 def _dict(value: Any) -> dict[str, Any]:

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from reezyn.adapters.claude import ClaudeHookAdapter, assistant_text
 from reezyn.adapters.codex import CodexWatcher, parse_rollout_record
+from reezyn.adapters.freebuff import parse_freebuff_messages
 from reezyn.adapters.gemini import GeminiHookAdapter, latest_assistant_reasoning
 from reezyn.events import Event
 from reezyn.sanitize import sanitize_hook_payload
@@ -236,3 +237,122 @@ def test_hook_sanitizer_keeps_only_useful_fields():
     assert "env" not in clean["tool_input"]
     assert "content" not in clean["tool_input"]
     assert "sk-abcdefghijklmnopqrstuvwxyz" not in clean["tool_input"]["command"]
+
+
+def test_claude_stop_speaks_only_the_final_answer(tmp_path):
+    transcript = tmp_path / "final.jsonl"
+    transcript.write_text(
+        json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "role": "assistant",
+                    "content": [
+                        {"type": "thinking", "thinking": "I should clear the cache."},
+                        {"type": "text", "text": "I cleared the cached token in session.ts."},
+                    ],
+                },
+            }
+        )
+        + "\n"
+    )
+    events = ClaudeHookAdapter().handle(
+        {
+            "session_id": "claude-3",
+            "hook_event_name": "Stop",
+            "cwd": "/Users/me/reezyn",
+            "transcript_path": str(transcript),
+        }
+    )
+    assert [event.kind for event in events] == ["closing"]
+    assert events[0].text.startswith("I cleared the cached token")
+    assert events[0].project == "/Users/me/reezyn"
+
+
+def test_claude_permission_notification_is_carried_through_the_spool():
+    payload = {
+        "session_id": "claude-4",
+        "hook_event_name": "Notification",
+        "cwd": "/Users/me/reezyn",
+        "message": "Claude needs your permission to use Bash",
+    }
+    clean = sanitize_hook_payload("claude", payload)
+    assert clean["message"] == payload["message"]
+
+    events = ClaudeHookAdapter().handle(clean)
+    assert [event.kind for event in events] == ["permission"]
+
+    # An ordinary notification is not a decision the developer can answer.
+    quiet = ClaudeHookAdapter().handle(
+        {**clean, "message": "Claude is compacting the conversation"}
+    )
+    assert quiet == []
+
+
+def test_gemini_after_agent_closes_the_turn():
+    events = GeminiHookAdapter().handle(
+        {
+            "session_id": "gemini-3",
+            "hook_event_name": "AfterAgent",
+            "cwd": "/Users/me/reezyn",
+            "prompt_response": "The refresh path now invalidates the old token.",
+        }
+    )
+    assert [event.kind for event in events] == ["closing"]
+    assert "invalidates" in events[0].text
+
+
+def test_gemini_tool_permission_notification():
+    payload = {
+        "session_id": "gemini-4",
+        "hook_event_name": "Notification",
+        "cwd": "/Users/me/reezyn",
+        "notification_type": "ToolPermission",
+        "message": "Gemini wants to run npm test",
+    }
+    clean = sanitize_hook_payload("gemini", payload)
+    assert clean["notification_type"] == "ToolPermission"
+    events = GeminiHookAdapter().handle(clean)
+    assert [event.kind for event in events] == ["permission"]
+
+
+def test_codex_final_answer_and_task_complete_close_the_turn():
+    events = parse_rollout_record(
+        {
+            "type": "response_item",
+            "timestamp": "2026-10-24T10:00:00Z",
+            "payload": {
+                "type": "message",
+                "role": "assistant",
+                "phase": "final_answer",
+                "content": [{"type": "output_text", "text": "The failing test now passes."}],
+            },
+        },
+        "codex-1",
+    )
+    assert [event.kind for event in events] == ["closing"]
+    assert events[0].text == "The failing test now passes."
+
+    events = parse_rollout_record(
+        {
+            "type": "event_msg",
+            "timestamp": "2026-10-24T10:00:01Z",
+            "payload": {"type": "task_complete", "last_agent_message": "Done."},
+        },
+        "codex-1",
+    )
+    assert [event.kind for event in events] == ["closing"]
+    assert events[0].text == "Done."
+
+
+def test_freebuff_completed_message_closes_the_turn_once():
+    messages = json.loads((FIXTURES / "freebuff_chat.json").read_text())
+    events = parse_freebuff_messages(messages, "freebuff/chat-1")
+    closings = [event for event in events if event.kind == "closing"]
+    assert [event.text for event in closings] == ["Done. Freebuff support is wired in."]
+    # The same sentence must not also be narrated as reasoning.
+    assert not [
+        event
+        for event in events
+        if event.kind == "reasoning" and event.text == closings[0].text
+    ]

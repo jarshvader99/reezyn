@@ -13,6 +13,19 @@ from .languages import DEFAULT_VOICE, VOICES
 APP_NAME = "reezyn"
 CONFIG_ENV = "REEZYN_HOME"
 
+DEFAULT_VOICE_APPS = (
+    "com.apple.Terminal",
+    "com.googlecode.iterm2",
+    "com.microsoft.VSCode",
+    "com.todesktop.230313mzl4w4u92",  # Cursor
+    "com.mitchellh.ghostty",
+    "dev.warp.Warp-Stable",
+    "com.github.wez.wezterm",
+    "net.kovidgoyal.kitty",
+    "org.alacritty",
+    "co.zeit.hyper",
+)
+
 SPEEDS: dict[str, float] = {
     "Calm": 0.84,
     "Natural": 0.94,
@@ -84,6 +97,28 @@ class RecallConfig:
 
 
 @dataclass(slots=True)
+class VoiceConfig:
+    enabled: bool = False
+    conversation: bool = True
+    wake_word: str = "hey reezyn"
+    locale: str = ""  # empty follows the selected voice's language
+    silence_ms: int = 1000
+    wake_silence_ms: int = 700
+    max_utterance_s: float = 15.0
+    follow_up_s: float = 8.0
+    conversation_s: float = 12.0
+    auto_send: bool = False
+    auto_send_in_conversation: bool = True
+    # After a dictated pause, ask whether to submit instead of guessing.
+    confirm_send: bool = True
+    confirm_s: float = 6.0
+    max_answer_words: int = 90
+    ack_sound: bool = True
+    require_text_field: bool = True
+    allow_apps: list[str] = field(default_factory=lambda: list(DEFAULT_VOICE_APPS))
+
+
+@dataclass(slots=True)
 class AgentsConfig:
     claude: bool = True
     codex: bool = True
@@ -100,6 +135,7 @@ class Config:
     banter: BanterConfig = field(default_factory=BanterConfig)
     ambience: AmbienceConfig = field(default_factory=AmbienceConfig)
     recall: RecallConfig = field(default_factory=RecallConfig)
+    voice: VoiceConfig = field(default_factory=VoiceConfig)
     agents: AgentsConfig = field(default_factory=AgentsConfig)
 
     def save(self, home: Path | None = None) -> Path:
@@ -116,6 +152,7 @@ class Config:
         a = self.agents
         m = self.ambience
         r = self.recall
+        v = self.voice
         return (
             "# Reezyn configuration\n"
             "# Changes here are read when the menu-bar app starts.\n\n"
@@ -152,13 +189,35 @@ class Config:
             f"threshold = {r.threshold:.2f}\n"
             f"max_age_days = {r.max_age_days:.1f}\n"
             f"cooldown_s = {r.cooldown_s:.1f}\n"
-            f"recap_minutes = {r.recap_minutes:.1f}\n"
+            f"recap_minutes = {r.recap_minutes:.1f}\n\n"
+            "[voice]\n"
+            f"enabled = {str(v.enabled).lower()}\n"
+            f"conversation = {str(v.conversation).lower()}\n"
+            f"wake_word = {quote(v.wake_word)}\n"
+            f"locale = {quote(v.locale)}\n"
+            f"silence_ms = {v.silence_ms}\n"
+            f"wake_silence_ms = {v.wake_silence_ms}\n"
+            f"max_utterance_s = {v.max_utterance_s:.1f}\n"
+            f"follow_up_s = {v.follow_up_s:.1f}\n"
+            f"conversation_s = {v.conversation_s:.1f}\n"
+            f"auto_send = {str(v.auto_send).lower()}\n"
+            f"auto_send_in_conversation = {str(v.auto_send_in_conversation).lower()}\n"
+            f"confirm_send = {str(v.confirm_send).lower()}\n"
+            f"confirm_s = {v.confirm_s:.1f}\n"
+            f"max_answer_words = {v.max_answer_words}\n"
+            f"ack_sound = {str(v.ack_sound).lower()}\n"
+            f"require_text_field = {str(v.require_text_field).lower()}\n"
+            f"allow_apps = {_quote_list(v.allow_apps)}\n"
         )
 
 
 def quote(value: str) -> str:
     escaped = value.replace("\\", "\\\\").replace('"', '\\"')
     return f'"{escaped}"'
+
+
+def _quote_list(values: list[str]) -> str:
+    return "[" + ", ".join(quote(value) for value in values) + "]"
 
 
 def load_config(home: Path | None = None) -> Config:
@@ -179,6 +238,7 @@ def load_config(home: Path | None = None) -> Config:
     banter = _section(raw, "banter")
     ambience = _section(raw, "ambience")
     recall = _section(raw, "recall")
+    voice = _section(raw, "voice")
     agents = _section(raw, "agents")
 
     config = Config(
@@ -216,6 +276,35 @@ def load_config(home: Path | None = None) -> Config:
             cooldown_s=_clamp_float(recall.get("cooldown_s"), 5, 3600, 90.0),
             recap_minutes=_clamp_float(recall.get("recap_minutes"), 2, 720, 45.0),
         ),
+        voice=VoiceConfig(
+            enabled=_bool(voice.get("enabled"), False),
+            conversation=_bool(voice.get("conversation"), True),
+            wake_word=_text(voice.get("wake_word"), "hey reezyn"),
+            locale=_text(voice.get("locale"), ""),
+            silence_ms=int(_clamp_float(voice.get("silence_ms"), 400, 3000, 1000)),
+            wake_silence_ms=int(
+                _clamp_float(voice.get("wake_silence_ms"), 300, 2000, 700)
+            ),
+            max_utterance_s=_clamp_float(
+                voice.get("max_utterance_s"), 4, 60, 15.0
+            ),
+            follow_up_s=_clamp_float(voice.get("follow_up_s"), 2, 60, 8.0),
+            conversation_s=_clamp_float(
+                voice.get("conversation_s"), 3, 90, 12.0
+            ),
+            auto_send=_bool(voice.get("auto_send"), False),
+            auto_send_in_conversation=_bool(
+                voice.get("auto_send_in_conversation"), True
+            ),
+            confirm_send=_bool(voice.get("confirm_send"), True),
+            confirm_s=_clamp_float(voice.get("confirm_s"), 2, 20, 6.0),
+            max_answer_words=int(
+                _clamp_float(voice.get("max_answer_words"), 20, 400, 90)
+            ),
+            ack_sound=_bool(voice.get("ack_sound"), True),
+            require_text_field=_bool(voice.get("require_text_field"), True),
+            allow_apps=_strings(voice.get("allow_apps"), list(DEFAULT_VOICE_APPS)),
+        ),
         agents=AgentsConfig(
             claude=_bool(agents.get("claude"), True),
             codex=_bool(agents.get("codex"), True),
@@ -249,6 +338,17 @@ def _choice(value: Any, choices: dict[str, str], default: str) -> str:
 
 def _bool(value: Any, default: bool) -> bool:
     return value if isinstance(value, bool) else default
+
+
+def _text(value: Any, default: str) -> str:
+    return value.strip() if isinstance(value, str) and value.strip() else default
+
+
+def _strings(value: Any, default: list[str]) -> list[str]:
+    if not isinstance(value, list):
+        return default
+    items = [item.strip() for item in value if isinstance(item, str) and item.strip()]
+    return items or default
 
 
 def _clamp_float(value: Any, low: float, high: float, default: float) -> float:

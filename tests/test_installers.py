@@ -28,42 +28,41 @@ def test_existing_bundled_hook_is_recognized(tmp_path, monkeypatch):
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
     path = settings_path("claude", tmp_path)
     path.parent.mkdir(parents=True)
-    path.write_text(
-        json.dumps(
-            {
-                "hooks": {
-                    "PreToolUse": [
-                        {
-                            "matcher": "*",
-                            "hooks": [
-                                {
-                                    "type": "command",
-                                    "command": "/Applications/Reezyn.app/Contents/MacOS/Reezyn hook claude",
-                                }
-                            ],
-                        }
-                    ],
-                    "UserPromptSubmit": [
-                        {
-                            "hooks": [
-                                {
-                                    "type": "command",
-                                    "command": "/Applications/Reezyn.app/Contents/MacOS/Reezyn hook claude",
-                                }
-                            ],
-                        }
-                    ],
-                }
-            }
-        )
-    )
+    command = "/Applications/Reezyn.app/Contents/MacOS/Reezyn hook claude"
+    hooks: dict[str, list[dict]] = {}
+    for event in ("PreToolUse", "UserPromptSubmit", "Stop", "Notification"):
+        group: dict[str, object] = {
+            "hooks": [{"type": "command", "command": command}]
+        }
+        if event == "PreToolUse":
+            group["matcher"] = "*"
+        hooks[event] = [group]
+    path.write_text(json.dumps({"hooks": hooks}))
     assert is_installed("claude", system_home=tmp_path)
 
     # Installing from a different build replaces it instead of adding another.
     install_hooks("claude", system_home=tmp_path)
     settings = json.loads(path.read_text())
-    assert len(settings["hooks"]["PreToolUse"]) == 1
-    assert len(settings["hooks"]["UserPromptSubmit"]) == 1
+    for event in hooks:
+        assert len(settings["hooks"][event]) == 1
+
+
+def test_installers_add_turn_end_and_permission_hooks(tmp_path, monkeypatch):
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    monkeypatch.delenv("GEMINI_CONFIG_DIR", raising=False)
+    install_hooks("claude", system_home=tmp_path)
+    claude = json.loads(settings_path("claude", tmp_path).read_text())
+    # Stop is what lets Reezyn speak the answer and reopen the microphone;
+    # Notification is what it can answer by voice.
+    assert "Stop" in claude["hooks"]
+    assert "Notification" in claude["hooks"]
+    assert "matcher" not in claude["hooks"]["Stop"][0]
+
+    install_hooks("gemini", system_home=tmp_path)
+    gemini = json.loads(settings_path("gemini", tmp_path).read_text())
+    assert "AfterAgent" in gemini["hooks"]
+    assert "Notification" in gemini["hooks"]
+    assert gemini["hooks"]["AfterAgent"][0]["hooks"][0]["timeout"] == 5000
 
 
 def test_claude_install_adds_a_prompt_hook(tmp_path, monkeypatch):

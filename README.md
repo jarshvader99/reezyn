@@ -18,6 +18,13 @@ The queue is deliberately lazy. Coding agents emit tool calls in bursts; Reezyn
 waits for a short pause, keeps the most recent useful thought, deduplicates the
 rest, and drops stale material instead of reading a backlog.
 
+Reezyn can also take the other side of the conversation. With voice input on and
+the caret in a terminal prompt, say **"Reezyn"** and dictate; it types what you
+say without submitting it. When an agent finishes a turn, Reezyn speaks the
+final answer and reopens the microphone, so a follow-up question never needs
+the keyboard. Speech recognition is Apple's on-device model, and no audio is
+written to disk.
+
 ## Requirements
 
 - macOS (the UI is a menu-bar app)
@@ -72,12 +79,15 @@ interpreter path is updated.
 uv run reezyn install claude
 ```
 
-This adds two async hooks to `~/.claude/settings.json`: `PreToolUse` and
-`UserPromptSubmit`. Each writes a minimized event to Reezyn's local spool and
-exits immediately. For a tool call Reezyn reads the session's `transcript_path`
-for the latest assistant reasoning that led to it; for a prompt it keeps the
-developer's own words so it can recall earlier work later (see
-[Memory](#memory)).
+This adds four hooks to `~/.claude/settings.json`: `PreToolUse`,
+`UserPromptSubmit`, `Stop`, and `Notification`. Each writes a minimized event
+to Reezyn's local spool and exits immediately. For a tool call Reezyn reads the
+session's `transcript_path` for the latest assistant reasoning that led to it;
+for a prompt it keeps the developer's own words so it can recall earlier work
+later (see [Memory](#memory)). `Stop` carries the end of a turn, so Reezyn can
+speak the final answer and open the microphone; `Notification` carries a
+permission prompt, which can be answered by voice (see
+[Voice input](#voice-input)).
 
 - Existing settings and hooks are preserved.
 - The previous file is copied to `settings.json.reezyn.bak`.
@@ -93,11 +103,15 @@ Start a new Claude Code session after installing the hook.
 uv run reezyn install gemini
 ```
 
-This adds two hooks to `~/.gemini/settings.json`: `BeforeTool`, with the same
-backup, idempotency, and uninstall behavior, and `BeforeAgent`, which carries
-the prompt you just submitted so Reezyn can recall earlier work. For tool calls
-Reezyn reads the hook's `transcript_path` and prefers explicit
-thought/reasoning parts.
+This adds four hooks to `~/.gemini/settings.json`: `BeforeTool`, with the same
+backup, idempotency, and uninstall behavior; `BeforeAgent`, which carries the
+prompt you just submitted so Reezyn can recall earlier work; `AfterAgent`,
+which closes the turn with the final response for the conversational loop; and
+`Notification`, which reports tool-permission prompts. For tool calls Reezyn
+reads the hook's `transcript_path` and prefers explicit thought/reasoning parts.
+
+An install from an earlier version only had the first two hooks, so rerun the
+installer after upgrading to gain `Stop`/`AfterAgent` and `Notification`.
 
 ### Codex CLI
 
@@ -210,6 +224,16 @@ Claude Code and Freebuff get.
   levels; ducks while narration plays.
 - **Lull banter** — a short line when a tool call runs long, so a quiet stretch
   never feels stalled. On by default; the menu switches it off.
+- **Voice input** — turns on hands-free dictation and the conversational loop.
+  Off by default; see [Voice input](#voice-input).
+- **Talk back after a turn** — speaks the agent's final answer (up to
+  `max_answer_words`) and reopens the microphone after each turn. On when voice
+  input is on.
+- **Ask before sending** — after a dictated pause, asks whether to submit
+  instead of pressing Return by itself. On by default; the hot keyword still
+  sends immediately.
+- **Voice permissions** — live status for Microphone, Speech Recognition, and
+  Accessibility, with buttons that open the right System Settings panes.
 - **Install agent hooks** — writes the Claude or Gemini integration after a
   confirmation dialog. Codex, Cursor, OpenCode, and Freebuff are watched
   automatically.
@@ -327,6 +351,76 @@ Cursor's project folder, or the hook's `cwd` — so switching agents does not
 split the memory. Custom agents get the same behavior with
 `reezyn emit --kind prompt`.
 
+## Voice input
+
+Hands-free input is off until you turn it on: choose **Voice input** in the menu
+or run `uv run reezyn voice --enable`. It needs three macOS grants, shown under
+**Voice permissions**: Microphone, Speech Recognition, and Accessibility.
+Accessibility is what lets Reezyn check where the caret is and type into it.
+Microphone and Speech may require restarting Reezyn after you grant them.
+
+```bash
+uv run reezyn voice           # config, permissions, wake word
+uv run reezyn voice --json    # the same, for scripts
+```
+
+How it behaves:
+
+- **Arming.** The microphone only listens for the wake word when a
+  terminal-like text field has the caret — Terminal, iTerm2, VS Code, Cursor,
+  Ghostty, Warp, WezTerm, kitty, Alacritty, or Hyper (`voice.allow_apps`).
+  Anywhere else, nothing is transcribed.
+- **Waking.** Say "Hey Reezyn" or just "Reezyn". Fuzzy matching accepts what
+  Apple's recognizer guesses: "reason", "resin", "risen". The menu bar chirps
+  once and the seedling shows the live transcript.
+- **Drafting.** Words are typed at the caret but never submitted; the live
+  transcript stays in the menu bar, not in the field. A one-second pause commits
+  the sentence, and the next eight seconds accept follow-ups without the wake
+  word.
+- **Confirming.** After the pause, Reezyn asks "Ready to send it?" and keeps
+  listening. Say yes or "send it" to press Return, "not yet" to keep the draft
+  and keep talking. Six seconds of silence leaves the draft in place.
+- **Sending at once.** End the sentence with the hot keyword — "…send it now",
+  "send now", "send it" — and Reezyn types and submits in one breath, with no
+  question and no wait.
+- **Dictation.** Spoken punctuation works: "comma", "period", "new line",
+  "underscore", "backtick". "Scratch that" backspaces exactly what Reezyn
+  inserted; "never mind" stops listening; "send it" presses Return.- **Conversation** (Claude Code, Gemini CLI, Codex, Freebuff). When an agent
+  finishes a turn, Reezyn speaks its final answer and keeps listening for a reply.
+  In that window a sentence is typed and submitted on its own — the confirmation
+  question is skipped, because a reply is already an answer and you may be away
+  from the screen. A
+  permission prompt is read aloud too: say "allow" or "deny" to press Return or
+  Escape, or answer with a full sentence to type it instead.
+- **Interrupting.** Saying the wake word while Reezyn is speaking stops the
+  speech and starts listening.
+
+Safety is layered: the app allowlist, the focused-control check, no automatic
+submission outside the conversation window, and "scratch that". Synthetic
+keystrokes go wherever focus is, so keep the allowlist to terminals and editors
+you trust.
+
+```toml
+[voice]
+enabled = false
+conversation = true          # speak final answers and reopen the mic
+wake_word = "hey reezyn"     # a bare "reezyn" also works
+locale = ""                  # empty follows the selected voice's language
+silence_ms = 1000            # pause that commits a sentence
+wake_silence_ms = 700        # pause that ends a wake-word probe
+max_utterance_s = 15.0
+follow_up_s = 8.0            # no wake word needed for this long after speech
+conversation_s = 12.0        # how long the mic stays open after a turn
+auto_send = false            # never submit a dictation by default
+auto_send_in_conversation = true
+confirm_send = true          # ask "ready to send?" after a dictated pause
+confirm_s = 6.0              # how long the answer window stays open
+max_answer_words = 90        # how much of a final answer is spoken
+ack_sound = true
+require_text_field = true
+allow_apps = ["com.apple.Terminal", "com.googlecode.iterm2", "com.microsoft.VSCode", "com.todesktop.230313mzl4w4u92", "com.mitchellh.ghostty", "dev.warp.Warp-Stable", "com.github.wez.wezterm", "net.kovidgoyal.kitty", "org.alacritty", "co.zeit.hyper"]
+```
+
 ## Configuration
 
 Reezyn creates `~/.reezyn/config.toml`:
@@ -371,10 +465,13 @@ threshold = 0.30        # lexical overlap needed before speaking; raise for sile
 max_age_days = 30.0     # older memories are ignored and pruned
 cooldown_s = 90.0       # minimum gap between spoken recalls
 recap_minutes = 45.0    # default window for Recap the last session
+
+[voice]
+# See Voice input for the full set; the menu edits [voice] enabled/conversation.
 ```
 
-The menu writes voice, pace, presence-bed, banter, and recall changes back
-here. Other edits take effect when the app restarts.
+The menu writes voice, pace, presence-bed, banter, recall, and voice-input
+changes back here. Other edits take effect when the app restarts.
 
 `REEZYN_HOME` moves all Reezyn state (config, models, spool, logs). Set it in
 the environment of both the menu app and the agent that runs the hook.
@@ -422,6 +519,11 @@ wins until it goes quiet.
 - The spool directory is `~/.reezyn/events` (mode `0700`).
 - Spoken lines are written to `~/.reezyn/reezyn.log` for debugging. Delete the
   log or set `REEZYN_HOME` if that is not appropriate for your machine.
+- Voice input uses Apple's on-device recognizer. Microphone audio is streamed
+  into the recognizer and never written to disk; transcripts are shown in the
+  menu bar and typed into the focused app, not logged.
+- Voice input only probes for its wake word while a terminal-like text field is
+  focused, and only types into apps on `voice.allow_apps`.
 - The only network request is the one-time Kokoro model download.
 - No telemetry.
 
@@ -479,6 +581,7 @@ reezyn/
   ambience.py    generated presence bed with ducking
   service.py     adapter → queue wiring
   tts.py         Kokoro setup, streaming playback, interruption
+  voice/         wake word, dictation, on-device ASR, typing guard, session loop
   spool.py       cross-process event handoff
   installers.py  backed-up hook install/uninstall
 packaging/       PyInstaller spec, icon, entitlements, build/sign script
@@ -509,3 +612,16 @@ packaging/       PyInstaller spec, icon, entitlements, build/sign script
   device chosen per utterance.
 - Reezyn expects the menu app to be running. Hooks are fast and fail silently;
   check `~/.reezyn/hook-errors.log` if events are not arriving.
+- Wake-word accuracy is the recognizer's, not a trained model's: "Reezyn" is
+  not an English word, so contextual strings and fuzzy matching cover guesses
+  like "reason" and "resin", but a quiet room and a clear "Reezyn" work best.
+- On-device recognition depends on the language model macOS has downloaded for
+  the selected voice's locale. If speech is unavailable, the menu reports the
+  error instead of falling back to a network recognizer.
+- The conversational loop needs a turn-end signal: the `Stop` (Claude) or
+  `AfterAgent` (Gemini) hook — reinstall the hooks after upgrading — or, for
+  Codex and Freebuff, the end of their watched transcripts. Cursor and OpenCode
+  are narrated but do not reopen the microphone yet.
+- Voice input requires the three TCC grants above. The DMG carries the
+  microphone and speech usage strings plus the audio-input entitlement, but
+  Accessibility is always a manual switch.

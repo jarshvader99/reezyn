@@ -41,6 +41,8 @@ class ReezynMenuApp(rumps.App):
         atexit.register(self.service.stop)
         self._last_title = ""
         self._last_status = ""
+        self._permissions: dict[str, str] = {}
+        self._permissions_checked = 0.0
         self._download_error = ""
         self._download_thread: threading.Thread | None = None
 
@@ -100,6 +102,49 @@ class ReezynMenuApp(rumps.App):
             "Recall when I re-ask", callback=self._toggle_recall
         )
 
+        self.voice_input_item = rumps.MenuItem(
+            "Voice input", callback=self._toggle_voice_input
+        )
+        self.conversation_item = rumps.MenuItem(
+            "Talk back after a turn", callback=self._toggle_conversation
+        )
+        self.confirm_item = rumps.MenuItem(
+            "Ask before sending", callback=self._toggle_confirm_send
+        )
+        self.permissions_menu = rumps.MenuItem("Voice permissions")
+        self.permission_items: dict[str, rumps.MenuItem] = {}
+        for key, label in (
+            ("microphone", "Microphone"),
+            ("speech", "Speech Recognition"),
+            ("accessibility", "Accessibility"),
+        ):
+            item = rumps.MenuItem(f"{label}: checking…")
+            item.set_callback(None)
+            self.permission_items[key] = item
+            self.permissions_menu.add(item)
+        self.permissions_menu.add(rumps.separator)
+        self.permissions_menu.add(
+            rumps.MenuItem("Request permissions…", callback=self._request_permissions)
+        )
+        self.permissions_menu.add(
+            rumps.MenuItem(
+                "Open Microphone settings…",
+                callback=self._make_settings_callback("microphone"),
+            )
+        )
+        self.permissions_menu.add(
+            rumps.MenuItem(
+                "Open Speech Recognition settings…",
+                callback=self._make_settings_callback("speech"),
+            )
+        )
+        self.permissions_menu.add(
+            rumps.MenuItem(
+                "Open Accessibility settings…",
+                callback=self._make_settings_callback("accessibility"),
+            )
+        )
+
         hooks_menu = rumps.MenuItem("Install agent hooks")
         hooks_menu.add(rumps.MenuItem("Claude Code…", callback=self._install_claude))
         hooks_menu.add(rumps.MenuItem("Gemini CLI…", callback=self._install_gemini))
@@ -135,6 +180,11 @@ class ReezynMenuApp(rumps.App):
             self.banter_item,
             self.recall_item,
             rumps.separator,
+            self.voice_input_item,
+            self.conversation_item,
+            self.confirm_item,
+            self.permissions_menu,
+            rumps.separator,
             hooks_menu,
             self.download_item,
             self.simulate_item,
@@ -164,11 +214,20 @@ class ReezynMenuApp(rumps.App):
         self._update_icon(status)
         icon_ok = self._icon_ready and not self._icon_failed
 
+        voice = self.service.voice_snapshot()
         if download:
             label = str(download.get("label") or "model")
             percent = float(download.get("percent") or 0.0)
             self.status_item.title = f"Downloading {label} — {percent:.0f}%"
             title = "↓" if icon_ok else "reezyn ↓"
+        elif voice is not None and voice.state == "error" and voice.error:
+            self.status_item.title = f"Voice input: {_shorten(voice.error, 84)}"
+            title = "!" if icon_ok else "reezyn !"
+        elif voice is not None and voice.state == "listening":
+            heard = voice.partial or "Listening…"
+            prefix = "Reply" if voice.mode == "conversation" else "Listening"
+            self.status_item.title = f'{prefix}: "{_shorten(heard, 76)}"'
+            title = "●" if icon_ok else "reezyn ●"
         elif status.state == "setup":
             self.status_item.title = "Voice model not installed — download it below"
             title = "!" if icon_ok else "reezyn !"
@@ -217,6 +276,10 @@ class ReezynMenuApp(rumps.App):
             )
         self.banter_item.state = 1 if self.service.config.banter.enabled else 0
         self.recall_item.state = 1 if self.service.config.recall.enabled else 0
+        self.voice_input_item.state = 1 if self.service.config.voice.enabled else 0
+        self.conversation_item.state = 1 if self.service.config.voice.conversation else 0
+        self.confirm_item.state = 1 if self.service.config.voice.confirm_send else 0
+        self._refresh_permissions()
         self.download_item.hidden = status.model_ready
         if status.state != self._last_status:
             self._refresh_recent()
@@ -349,19 +412,23 @@ class ReezynMenuApp(rumps.App):
     def _install_claude(self, _sender: Any = None) -> None:
         self._install_agent(
             "claude",
-            "Install Reezyn's Claude Code hook?\n\n"
-            "This adds two async hooks to ~/.claude/settings.json: PreToolUse, "
-            "and UserPromptSubmit so Reezyn remembers what you asked. "
-            "Reezyn keeps a backup and never replaces your other hooks.",
+            "Install Reezyn's Claude Code hooks?\n\n"
+            "This adds four hooks to ~/.claude/settings.json: PreToolUse and "
+            "UserPromptSubmit so Reezyn follows your work, Stop so it can speak "
+            "the final answer and open the microphone, and Notification for "
+            "permission prompts. Reezyn keeps a backup and never replaces your "
+            "other hooks.",
         )
 
     def _install_gemini(self, _sender: Any = None) -> None:
         self._install_agent(
             "gemini",
-            "Install Reezyn's Gemini CLI hook?\n\n"
-            "This adds two hooks to ~/.gemini/settings.json: BeforeTool, "
-            "and BeforeAgent so Reezyn remembers what you asked. "
-            "Reezyn keeps a backup and never replaces your other hooks.",
+            "Install Reezyn's Gemini CLI hooks?\n\n"
+            "This adds four hooks to ~/.gemini/settings.json: BeforeTool and "
+            "BeforeAgent so Reezyn follows your work, AfterAgent so it can speak "
+            "the final answer and open the microphone, and Notification for "
+            "permission prompts. Reezyn keeps a backup and never replaces your "
+            "other hooks.",
         )
 
     def _install_agent(self, agent: str, message: str) -> None:
@@ -408,6 +475,94 @@ class ReezynMenuApp(rumps.App):
         self.service.set_recall(not self.service.config.recall.enabled)
         self.config = self.service.config
         self._tick()
+
+    def _toggle_voice_input(self, _sender: Any = None) -> None:
+        enabling = not self.service.config.voice.enabled
+        ok = self.service.set_voice_input(enabling)
+        self.config = self.service.config
+        self._tick()
+        if not enabling:
+            return
+        if not ok:
+            snapshot = self.service.voice_snapshot()
+            message = (
+                snapshot.error
+                if snapshot is not None and snapshot.error
+                else "Reezyn could not open the microphone."
+            )
+            rumps.alert(title="Voice input is not ready", message=message, ok="OK")
+        # The TCC prompts only appear for the bundled app, so ask once here.
+        self._request_permissions(quiet=True)
+
+    def _toggle_conversation(self, _sender: Any = None) -> None:
+        self.service.set_conversation(not self.service.config.voice.conversation)
+        self.config = self.service.config
+        self._tick()
+
+    def _toggle_confirm_send(self, _sender: Any = None) -> None:
+        self.service.set_confirm_send(not self.service.config.voice.confirm_send)
+        self.config = self.service.config
+        self._tick()
+
+    def _refresh_permissions(self, force: bool = False) -> None:
+        now = time.monotonic()
+        if not force and now - self._permissions_checked < 2.5:
+            return
+        self._permissions_checked = now
+        try:
+            from .voice import permissions
+
+            self._permissions = permissions.summary()
+        except Exception:
+            self._permissions = {}
+        for key, item in self.permission_items.items():
+            state = self._permissions.get(key, "unknown").replace("_", " ")
+            label = {
+                "microphone": "Microphone",
+                "speech": "Speech Recognition",
+                "accessibility": "Accessibility",
+            }[key]
+            item.title = f"{label}: {state}"
+
+    def _request_permissions(self, _sender: Any = None, quiet: bool = False) -> None:
+        try:
+            from .voice import permissions
+        except Exception as exc:
+            if not quiet:
+                rumps.alert(title="Voice permissions", message=str(exc), ok="OK")
+            return
+
+        def report(state: dict[str, str]) -> None:
+            self._refresh_permissions(force=True)
+            missing = [name for name, value in state.items() if value != "authorized"]
+            if not quiet or missing:
+                self._show_permission_status(state)
+
+        try:
+            permissions.request_missing(report)
+        except Exception as exc:
+            if not quiet:
+                rumps.alert(title="Voice permissions", message=str(exc), ok="OK")
+
+    def _show_permission_status(self, state: dict[str, str]) -> None:
+        from .voice import permissions
+
+        lines = [permissions.describe()]
+        if any(value != "authorized" for value in state.values()):
+            lines.append("")
+            lines.append(
+                "After granting Microphone or Speech Recognition, macOS may need "
+                "Reezyn restarted. Accessibility takes effect immediately."
+            )
+        rumps.alert(title="Voice permissions", message="\n".join(lines), ok="OK")
+
+    def _make_settings_callback(self, kind: str) -> Any:
+        def open_settings_item(_sender: Any = None) -> None:
+            from .voice import permissions
+
+            permissions.open_settings(kind)
+
+        return open_settings_item
 
     def _recap(self, _sender: Any = None) -> None:
         self.service.recap()

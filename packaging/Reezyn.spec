@@ -23,6 +23,11 @@ for package in (
     "phonemizer",
     "onnxruntime",
     "sounddevice",
+    # Hands-free input: the mic, Apple's on-device recognizer, and typing.
+    "AVFoundation",
+    "Speech",
+    "Quartz",
+    "ApplicationServices",
 ):
     package_datas, package_binaries, package_hidden = collect_all(package)
     datas += package_datas
@@ -43,7 +48,7 @@ for distribution in (
     except Exception:
         pass
 
-hiddenimports += ["rumps.notifications"]
+hiddenimports += ["rumps.notifications", "objc", "CoreFoundation", "AppKit"]
 
 icon = ROOT / "build" / "Reezyn.icns"
 
@@ -101,6 +106,15 @@ app = BUNDLE(
         "LSUIElement": True,
         "LSApplicationCategoryType": "public.app-category.utilities",
         "NSHighResolutionCapable": True,
+        "NSMicrophoneUsageDescription": (
+            "Reezyn listens for its wake word so you can dictate prompts and "
+            "answer an agent without touching the keyboard. Audio is "
+            "recognized on this Mac and never recorded to disk."
+        ),
+        "NSSpeechRecognitionUsageDescription": (
+            "Reezyn turns the words you speak into the terminal's input using "
+            "on-device speech recognition."
+        ),
         "NSHumanReadableCopyright": "Copyright © 2026 Joshua Harrison. Apache-2.0.",
         "NSPrincipalClass": "NSApplication",
     },

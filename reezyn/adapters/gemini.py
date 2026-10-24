@@ -41,6 +41,35 @@ class GeminiHookAdapter:
                 )
             ]
 
+        if event_name == "AfterAgent":
+            # AfterAgent carries the final response, so a turn can be closed
+            # without reading the transcript again.
+            answer = str(payload.get("prompt_response") or "").strip()
+            return [
+                Event(
+                    agent="gemini",
+                    kind="closing",
+                    text=answer,
+                    session_id=session_id,
+                    project=project,
+                )
+            ]
+
+        if event_name == "Notification":
+            kind = str(payload.get("notification_type") or "")
+            message = str(payload.get("message") or "").strip()
+            if kind != "ToolPermission" and "permission" not in message.lower():
+                return []
+            return [
+                Event(
+                    agent="gemini",
+                    kind="permission",
+                    text=message or "Gemini needs your permission to run a tool.",
+                    session_id=session_id,
+                    project=project,
+                )
+            ]
+
         tool_name = str(payload.get("tool_name") or "").strip()
         if event_name and event_name != "BeforeTool":
             return []

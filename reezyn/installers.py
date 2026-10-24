@@ -17,10 +17,11 @@ AgentName = Literal["claude", "gemini"]
 # Claude gets a prompt hook as well as a tool hook: the prompt is how Reezyn
 # learns what the developer asked, so it can recall earlier work when a
 # question comes back around.
-CLAUDE_HOOK_EVENTS = ("PreToolUse", "UserPromptSubmit")
+CLAUDE_HOOK_EVENTS = ("PreToolUse", "UserPromptSubmit", "Stop", "Notification")
 # Gemini's BeforeAgent fires after the prompt is submitted and before planning,
-# which is the equivalent of Claude's UserPromptSubmit.
-GEMINI_HOOK_EVENTS = ("BeforeTool", "BeforeAgent")
+# which is the equivalent of Claude's UserPromptSubmit. AfterAgent fires when a
+# turn is done, and Notification reports tool-permission prompts.
+GEMINI_HOOK_EVENTS = ("BeforeTool", "BeforeAgent", "AfterAgent", "Notification")
 
 
 @dataclass(slots=True)
@@ -61,70 +62,43 @@ def install_hooks(
     path = settings_path(agent, system_home)
     settings = _load_settings(path)
 
+    command = hook_command(agent)
     if agent == "claude":
-        _replace_ours(settings, "PreToolUse", agent)
-        _add_group(
-            settings,
-            "PreToolUse",
-            {
-                "matcher": "*",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": hook_command(agent),
-                        "timeout": 5,
-                        "async": True,
-                    }
-                ],
-            },
-        )
-        _replace_ours(settings, "UserPromptSubmit", agent)
-        _add_group(
-            settings,
-            "UserPromptSubmit",
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": hook_command(agent),
-                        "timeout": 5,
-                        "async": True,
-                    }
-                ],
-            },
-        )
+        for event in CLAUDE_HOOK_EVENTS:
+            _replace_ours(settings, event, agent)
+            _add_group(
+                settings,
+                event,
+                {
+                    **({"matcher": "*"} if event == "PreToolUse" else {}),
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": command,
+                            "timeout": 5,
+                            "async": True,
+                        }
+                    ],
+                },
+            )
     else:
-        _replace_ours(settings, "BeforeTool", agent)
-        _add_group(
-            settings,
-            "BeforeTool",
-            {
-                "matcher": ".*",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "name": "reezyn",
-                        "command": hook_command(agent),
-                        "timeout": 5000,
-                    }
-                ],
-            },
-        )
-        _replace_ours(settings, "BeforeAgent", agent)
-        _add_group(
-            settings,
-            "BeforeAgent",
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "name": "reezyn",
-                        "command": hook_command(agent),
-                        "timeout": 5000,
-                    }
-                ],
-            },
-        )
+        for event in GEMINI_HOOK_EVENTS:
+            _replace_ours(settings, event, agent)
+            _add_group(
+                settings,
+                event,
+                {
+                    **({"matcher": ".*"} if event == "BeforeTool" else {}),
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "name": "reezyn",
+                            "command": command,
+                            "timeout": 5000,
+                        }
+                    ],
+                },
+            )
 
     # A dry run still reports what would be written without touching the file.
     if dry_run:

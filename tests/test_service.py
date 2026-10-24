@@ -12,6 +12,7 @@ from reezyn.config import (
     NarrationConfig,
     RecallConfig,
     SpeechConfig,
+    VoiceConfig,
     load_config,
 )
 from reezyn.events import Event
@@ -369,5 +370,119 @@ def test_service_switches_narration_language_with_the_voice(tmp_path):
         while not speaker.spoken and time.time() < deadline:
             time.sleep(0.05)
         assert speaker.spoken == ["Estoy leyendo session.ts."]
+    finally:
+        service.stop()
+
+
+class FakeVoice:
+    def __init__(self) -> None:
+        self.speaking: list[bool] = []
+        self.opened: list[bool] = []
+
+    def start(self) -> bool:
+        return True
+
+    def stop(self) -> None:
+        return
+
+    def set_speaking(self, speaking: bool) -> None:
+        self.speaking.append(speaking)
+
+    def open_for_conversation(
+        self, seconds: float | None = None, permission: bool = False
+    ) -> None:
+        self.opened.append(permission)
+
+    def status(self) -> None:
+        return None
+
+
+def _voice_service(tmp_path, *, conversation: bool = True):
+    home = tmp_path / "state"
+    config = Config(
+        speech=SpeechConfig(),
+        narration=NarrationConfig(
+            debounce_ms=20,
+            stale_after_s=5,
+            min_gap_s=0,
+            connectors=False,
+        ),
+        voice=VoiceConfig(
+            enabled=False,
+            conversation=conversation,
+            max_answer_words=40,
+            ack_sound=False,
+        ),
+        agents=AgentsConfig(
+            claude=False,
+            codex=False,
+            gemini=False,
+            cursor=False,
+            opencode=False,
+            freebuff=False,
+        ),
+    )
+    speaker = FakeSpeaker()
+    service = ReezynService(config, home, speaker=speaker)
+    service.start()
+    service.config.voice.enabled = True
+    voice = FakeVoice()
+    service.voice = voice
+    return service, voice, speaker
+
+
+def _wait_for(predicate, timeout: float = 3.0) -> bool:
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if predicate():
+            return True
+        time.sleep(0.05)
+    return False
+
+
+def test_closing_event_speaks_the_answer_then_opens_the_microphone(tmp_path):
+    service, voice, speaker = _voice_service(tmp_path)
+    try:
+        service._submit_event(
+            Event(
+                agent="claude",
+                kind="closing",
+                text="The refresh test passes now. Anything else you want changed?",
+            )
+        )
+        assert _wait_for(lambda: bool(voice.opened))
+        assert voice.opened == [False]
+        assert voice.speaking == [True, False]
+        assert "refresh test passes" in speaker.spoken[-1]
+    finally:
+        service.stop()
+
+
+def test_permission_event_opens_the_microphone_for_an_answer(tmp_path):
+    service, voice, speaker = _voice_service(tmp_path)
+    try:
+        service._submit_event(
+            Event(
+                agent="claude",
+                kind="permission",
+                text="Claude needs your permission to run npm test.",
+            )
+        )
+        assert _wait_for(lambda: bool(voice.opened))
+        assert voice.opened == [True]
+        assert "permission" in speaker.spoken[-1]
+    finally:
+        service.stop()
+
+
+def test_closing_event_is_silent_when_conversation_is_off(tmp_path):
+    service, voice, speaker = _voice_service(tmp_path, conversation=False)
+    try:
+        service._submit_event(
+            Event(agent="claude", kind="closing", text="The tests pass.")
+        )
+        time.sleep(0.4)
+        assert voice.opened == []
+        assert speaker.spoken == []
     finally:
         service.stop()

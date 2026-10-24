@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-EventKind = Literal["reasoning", "tool", "prompt"]
+EventKind = Literal["reasoning", "tool", "prompt", "closing", "permission"]
 
 
 @dataclass(slots=True)
@@ -29,7 +29,7 @@ class Event:
             # Prompts are identified by their text like reasoning is; tool
             # events by the call. Otherwise every prompt in a session would
             # share one fingerprint and be deduplicated away.
-            spoken = self.kind in ("reasoning", "prompt")
+            spoken = self.kind in ("reasoning", "prompt", "closing", "permission")
             self.fingerprint = make_fingerprint(
                 self.agent,
                 self.session_id,
@@ -54,7 +54,7 @@ class Event:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Event:
         kind = data.get("kind")
-        if kind not in ("reasoning", "tool", "prompt"):
+        if kind not in ("reasoning", "tool", "prompt", "closing", "permission"):
             kind = "reasoning" if data.get("text") else "tool"
         tool_input = data.get("tool_input")
         if not isinstance(tool_input, dict):

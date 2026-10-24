@@ -98,6 +98,39 @@ class JsonlTail:
             return False
 
 
+def read_jsonl_tail(path: Path, max_bytes: int = 262_144) -> list[dict[str, Any]]:
+    """The last stretch of a JSONL file, for reading a final answer.
+
+    This is a one-shot read for turn-end hooks, not an incremental tail, so it
+    skips a partial first line at the window boundary.
+    """
+
+    try:
+        size = path.stat().st_size
+        with path.open("rb") as handle:
+            if size > max_bytes:
+                handle.seek(size - max_bytes)
+            data = handle.read().decode("utf-8", "replace")
+    except OSError:
+        return []
+
+    lines = data.splitlines()
+    if size > max_bytes and lines:
+        lines = lines[1:]
+    records: list[dict[str, Any]] = []
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            value = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(value, dict):
+            records.append(value)
+    return records
+
+
 def parse_json_or_jsonl(path: Path, max_bytes: int = 8_000_000) -> Any:
     """Read a Gemini-style session file, accepting JSON or JSONL."""
 

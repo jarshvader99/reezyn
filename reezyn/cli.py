@@ -55,6 +55,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_recap(args)
     if command == "recall":
         return cmd_recall(args)
+    if command == "voice":
+        return cmd_voice(args)
     if command == "version":
         print(__version__)
         return 0
@@ -114,6 +116,11 @@ def build_parser() -> argparse.ArgumentParser:
     recall.add_argument("--project", default="", help="Project directory (default: cwd)")
     recall.add_argument("--limit", type=int, default=5)
     recall.add_argument("--threshold", type=float, default=None)
+
+    voice = sub.add_parser("voice", help="Show or switch hands-free voice input")
+    voice.add_argument("--enable", action="store_true", help="Turn voice input on")
+    voice.add_argument("--disable", action="store_true", help="Turn voice input off")
+    voice.add_argument("--json", action="store_true", help="Print machine-readable status")
 
     sub.add_parser("version", help="Print the version")
     return parser
@@ -363,6 +370,12 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             "enabled": config.ambience.enabled,
             "volume": config.ambience.volume,
         },
+        "voice_input": {
+            "enabled": config.voice.enabled,
+            "conversation": config.voice.conversation,
+            "wake_word": config.voice.wake_word,
+            "permissions": _voice_permissions(),
+        },
         "pending_events": spool_count,
     }
 
@@ -400,6 +413,23 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             else "off"
         )
     )
+    voice_input = report["voice_input"]
+    print(
+        "  Voice input  "
+        + ("on" if voice_input["enabled"] else "off")
+        + (", conversation on" if voice_input["conversation"] else "")
+        + f"  (wake word: {voice_input['wake_word']!r})"
+    )
+    missing_permissions = [
+        name for name, state in voice_input["permissions"].items() if state != "authorized"
+    ]
+    if missing_permissions:
+        print(
+            "  Permissions  needs "
+            + ", ".join(name.replace("_", " ") for name in missing_permissions)
+        )
+    else:
+        print("  Permissions  microphone, speech, accessibility granted")
     print(f"  Spool        {spool_count} pending event(s)")
     if not paths.ready:
         print("\nRun `reezyn setup` to install the voice model.")
@@ -461,6 +491,80 @@ def cmd_recall(args: argparse.Namespace) -> int:
         label = labels.get(entry.role, entry.role)
         print(f"{stamp}  {label}: {_clip(entry.text, 220)}")
     return 0
+
+
+def cmd_voice(args: argparse.Namespace) -> int:
+    home = app_home()
+    config = load_config(home)
+    if args.enable and args.disable:
+        print("Choose --enable or --disable, not both.", file=sys.stderr)
+        return 2
+    if args.enable:
+        config.voice.enabled = True
+        config.save(home)
+    elif args.disable:
+        config.voice.enabled = False
+        config.save(home)
+
+    state = {
+        "enabled": config.voice.enabled,
+        "conversation": config.voice.conversation,
+        "wake_word": config.voice.wake_word,
+        "silence_ms": config.voice.silence_ms,
+        "follow_up_s": config.voice.follow_up_s,
+        "conversation_s": config.voice.conversation_s,
+        "confirm_send": config.voice.confirm_send,
+        "confirm_s": config.voice.confirm_s,
+        "permissions": _voice_permissions(),
+        "running": is_running(home),
+    }
+    if args.json:
+        print(json.dumps(state, indent=2))
+        return 0
+
+    print(f"Voice input    {'on' if state['enabled'] else 'off'}")
+    print(f"Wake word      {state['wake_word']!r} (a bare 'reezyn' also works)")
+    print(
+        "Conversation   "
+        + (
+            "on — the last answer is spoken and the mic reopens after each turn"
+            if state["conversation"]
+            else "off"
+        )
+    )
+    print(f"Commit         after {state['silence_ms']} ms of silence")
+    print(
+        "Sending        "
+        + (
+            f"asks 'ready to send?' for {state['confirm_s']:.0f}s; "
+            "'send it now' skips the question"
+            if state["confirm_send"]
+            else "submits on 'send it'; no question"
+        )
+    )
+    print(f"Follow-up      {state['follow_up_s']:.0f}s without the wake word")
+    print(f"Menu app       {'running' if state['running'] else 'not running'}")
+    print("Permissions")
+    for name, value in state["permissions"].items():
+        print(f"  {name.title():14} {value.replace('_', ' ')}")
+    if not state["enabled"]:
+        print("\nTurn it on with `reezyn voice --enable`, then restart the app.")
+    elif not state["running"]:
+        print("\nStart the menu-bar app with `reezyn`.")
+    return 0
+
+
+def _voice_permissions() -> dict[str, str]:
+    try:
+        from .voice import permissions
+
+        return permissions.summary()
+    except Exception:
+        return {
+            "microphone": "unknown",
+            "speech": "unknown",
+            "accessibility": "unknown",
+        }
 
 
 def _clip(text: str, width: int) -> str:

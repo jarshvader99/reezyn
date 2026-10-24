@@ -228,6 +228,17 @@ def _response_item_events(payload: dict[str, Any], session_id: str, ts: float) -
             ]
         if payload.get("role") != "assistant":
             return []
+        if payload.get("phase") == "final_answer":
+            text = _message_text(payload)
+            return [
+                Event(
+                    agent="codex",
+                    kind="closing",
+                    text=text,
+                    session_id=session_id,
+                    ts=ts,
+                )
+            ]
         if payload.get("phase") not in ("commentary",):
             return []
         text = _message_text(payload)
@@ -285,6 +296,19 @@ def _response_item_events(payload: dict[str, Any], session_id: str, ts: float) -
 
 def _event_msg_events(payload: dict[str, Any], session_id: str, ts: float) -> list[Event]:
     event_type = payload.get("type")
+
+    if event_type == "task_complete":
+        # Codex announces the end of a turn separately from the final message.
+        text = payload.get("last_agent_message") or payload.get("text") or ""
+        return [
+            Event(
+                agent="codex",
+                kind="closing",
+                text=str(text).strip(),
+                session_id=session_id,
+                ts=ts,
+            )
+        ]
 
     if event_type == "user_message":
         message = payload.get("message")
