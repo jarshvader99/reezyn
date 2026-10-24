@@ -80,8 +80,11 @@ class CursorWatcher:
                 records = tail.read(path)
             except Exception:
                 continue
+            project = _project_from_path(path)
             for record in records:
-                for event in parse_cursor_record(record, _session_id(path, record)):
+                for event in parse_cursor_record(
+                    record, _session_id(path, record), project=project
+                ):
                     seen_at = self._seen.get(event.fingerprint)
                     if seen_at is not None and time.monotonic() - seen_at < 10:
                         continue
@@ -121,18 +124,39 @@ class CursorWatcher:
 
 
 def parse_cursor_record(
-    record: dict[str, Any], session_id: str, now: float | None = None
+    record: dict[str, Any],
+    session_id: str,
+    now: float | None = None,
+    project: str = "",
 ) -> list[Event]:
     role = record.get("role")
     if not isinstance(role, str):
         role = record.get("type")
     role = role.lower() if isinstance(role, str) else ""
-    if role not in ("assistant", "model"):
-        return []
 
     ts = _record_ts(record) or (time.time() if now is None else now)
     message = record.get("message")
     content: Any = message.get("content") if isinstance(message, dict) else record.get("content")
+
+    # The developer's own turn. It is not spoken, but it is what recall and
+    # recap are built from.
+    if role in ("user", "human"):
+        text = _prompt_text(content)
+        if not text:
+            return []
+        return [
+            Event(
+                agent="cursor",
+                kind="prompt",
+                text=text,
+                session_id=session_id,
+                project=project,
+                ts=ts,
+            )
+        ]
+
+    if role not in ("assistant", "model"):
+        return []
 
     if isinstance(content, str):
         # A bare string is usually a final answer, not pre-tool reasoning.
@@ -204,7 +228,48 @@ def parse_cursor_record(
                 ts=ts,
             ),
         )
+    if project:
+        for event in events:
+            event.project = project
     return events
+
+
+def _prompt_text(content: Any) -> str:
+    if isinstance(content, str):
+        return content.strip()[:4000]
+    if not isinstance(content, list):
+        return ""
+    parts: list[str] = []
+    for block in content:
+        if isinstance(block, str):
+            parts.append(block)
+        elif isinstance(block, dict):
+            kind = str(block.get("type") or "").lower()
+            if kind not in ("text", "input_text"):
+                continue
+            value = block.get("text")
+            if isinstance(value, str) and value.strip():
+                parts.append(value.strip())
+    return " ".join(parts).strip()[:4000]
+
+
+def _project_from_path(path: Path) -> str:
+    """The project folder Cursor writes under; the real path when it decodes."""
+
+    try:
+        name = path.parents[2].name
+    except IndexError:
+        return ""
+    if not name:
+        return ""
+    # Cursor flattens the working directory into a folder name. Recover the
+    # real path when that reading exists, so a Cursor session joins the same
+    # ledger Claude Code and the others use.
+    if name.startswith(("Users-", "home-", "private-")):
+        candidate = "/" + name.replace("-", "/")
+        if Path(candidate).is_dir():
+            return candidate
+    return name
 
 
 def _tool_input(value: Any) -> dict[str, Any]:

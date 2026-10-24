@@ -85,6 +85,8 @@ class OpenCodeWatcher:
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
         self._seen: dict[str, float] = {}
+        self._directories: dict[str, str] = {}
+        self._directories_at = 0.0
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -121,6 +123,11 @@ class OpenCodeWatcher:
                 if "session_message" in tables:
                     rows = _current_rows(connection, cutoff)
                     if rows:
+                        unknown = any(
+                            str(row["session_id"] or "") not in self._directories
+                            for row in rows
+                        )
+                        self._load_directories(connection, tables, force=unknown)
                         for row in rows:
                             self._emit_current(row)
                         self._prune_seen()
@@ -128,6 +135,8 @@ class OpenCodeWatcher:
                 if "part" in tables and "message" in tables:
                     for row in _legacy_rows(connection, cutoff):
                         self._emit_legacy(row)
+                    self._load_directories(connection, tables)
+                    self._emit_legacy_prompts(connection, cutoff)
             except (sqlite3.Error, OSError, ValueError):
                 log.debug("OpenCode scan failed", exc_info=True)
             finally:
@@ -145,6 +154,36 @@ class OpenCodeWatcher:
         connection.execute("PRAGMA busy_timeout = 500")
         return connection
 
+    def _load_directories(
+        self, connection: sqlite3.Connection, tables: set[str], force: bool = False
+    ) -> None:
+        """Remember each session's working directory so prompts join a ledger.
+
+        The map is small and rarely changes, so it is refreshed on a slow
+        timer, or immediately when a session shows up that it has not seen.
+        """
+
+        now = time.monotonic()
+        if not force and now - self._directories_at < 30:
+            return
+        self._directories_at = now
+        if len(self._directories) > 5000:
+            self._directories.clear()
+        for table in ("session_v2", "session"):
+            if table not in tables:
+                continue
+            try:
+                rows = connection.execute(
+                    f"SELECT id, directory FROM {table}"
+                ).fetchall()
+            except sqlite3.Error:
+                continue
+            for row in rows:
+                session_id = str(row["id"] or "")
+                directory = str(row["directory"] or "")
+                if session_id and directory:
+                    self._directories[session_id] = directory
+
     def _emit_current(self, row: sqlite3.Row) -> None:
         try:
             data = json.loads(row["data"])
@@ -155,6 +194,28 @@ class OpenCodeWatcher:
         session_id = str(row["session_id"] or data.get("sessionID") or "")
         message_id = str(row["id"] or "")
         message_time = _message_time(data, row["time_created"])
+
+        # A user row carries the prompt as a plain text field.
+        if str(row["type"] or "") == "user":
+            text = data.get("text")
+            if isinstance(text, str) and text.strip():
+                self._submit(
+                    [
+                        (
+                            f"{message_id}:prompt",
+                            Event(
+                                agent="opencode",
+                                kind="prompt",
+                                text=text.strip()[:4000],
+                                session_id=session_id,
+                                project=self._directories.get(session_id, ""),
+                                ts=_ms_to_seconds(message_time),
+                            ),
+                        )
+                    ]
+                )
+            return
+
         content = data.get("content")
         if not isinstance(content, list):
             return
@@ -276,6 +337,69 @@ class OpenCodeWatcher:
                 ]
             )
 
+    def _emit_legacy_prompts(
+        self, connection: sqlite3.Connection, cutoff_ms: int
+    ) -> None:
+        """Prompts from the older message + part schema, grouped per message."""
+
+        try:
+            rows = connection.execute(
+                """
+                SELECT p.message_id, p.session_id, p.time_created, p.data
+                FROM part p
+                JOIN message m ON m.id = p.message_id
+                WHERE m.time_created >= ?
+                  AND json_valid(m.data)
+                  AND json_extract(m.data, '$.role') = 'user'
+                ORDER BY p.time_created ASC, p.id ASC
+                """,
+                (cutoff_ms,),
+            ).fetchall()
+        except sqlite3.Error:
+            return
+
+        grouped: dict[str, list[str]] = {}
+        meta: dict[str, tuple[str, float]] = {}
+        for row in rows:
+            try:
+                data = json.loads(row["data"])
+            except (TypeError, json.JSONDecodeError):
+                continue
+            if not isinstance(data, dict) or data.get("type") != "text":
+                continue
+            text = data.get("text")
+            if not isinstance(text, str) or not text.strip():
+                continue
+            message_id = str(row["message_id"] or "")
+            if not message_id:
+                continue
+            grouped.setdefault(message_id, []).append(text.strip())
+            meta.setdefault(
+                message_id,
+                (
+                    str(row["session_id"] or ""),
+                    _ms_to_seconds(row["time_created"]),
+                ),
+            )
+
+        for message_id, texts in grouped.items():
+            session_id, ts = meta[message_id]
+            self._submit(
+                [
+                    (
+                        f"{message_id}:prompt",
+                        Event(
+                            agent="opencode",
+                            kind="prompt",
+                            text=" ".join(texts)[:4000],
+                            session_id=session_id,
+                            project=self._directories.get(session_id, ""),
+                            ts=ts,
+                        ),
+                    )
+                ]
+            )
+
     def _submit(self, entries: list[tuple[str, Event]]) -> None:
         now = time.monotonic()
         for key, event in entries:
@@ -345,9 +469,9 @@ def _tables(connection: sqlite3.Connection) -> set[str]:
 def _current_rows(connection: sqlite3.Connection, cutoff_ms: int) -> list[sqlite3.Row]:
     return connection.execute(
         """
-        SELECT id, session_id, time_created, data
+        SELECT id, session_id, type, time_created, data
         FROM session_message
-        WHERE type = 'assistant' AND time_created >= ?
+        WHERE type IN ('user', 'assistant') AND time_created >= ?
         ORDER BY time_created ASC, id ASC
         """,
         (cutoff_ms,),

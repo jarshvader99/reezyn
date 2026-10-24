@@ -18,7 +18,9 @@ AgentName = Literal["claude", "gemini"]
 # learns what the developer asked, so it can recall earlier work when a
 # question comes back around.
 CLAUDE_HOOK_EVENTS = ("PreToolUse", "UserPromptSubmit")
-GEMINI_HOOK_EVENTS = ("BeforeTool",)
+# Gemini's BeforeAgent fires after the prompt is submitted and before planning,
+# which is the equivalent of Claude's UserPromptSubmit.
+GEMINI_HOOK_EVENTS = ("BeforeTool", "BeforeAgent")
 
 
 @dataclass(slots=True)
@@ -98,6 +100,21 @@ def install_hooks(
             "BeforeTool",
             {
                 "matcher": ".*",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "name": "reezyn",
+                        "command": hook_command(agent),
+                        "timeout": 5000,
+                    }
+                ],
+            },
+        )
+        _replace_ours(settings, "BeforeAgent", agent)
+        _add_group(
+            settings,
+            "BeforeAgent",
+            {
                 "hooks": [
                     {
                         "type": "command",

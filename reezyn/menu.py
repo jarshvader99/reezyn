@@ -359,7 +359,8 @@ class ReezynMenuApp(rumps.App):
         self._install_agent(
             "gemini",
             "Install Reezyn's Gemini CLI hook?\n\n"
-            "This adds one BeforeTool hook to ~/.gemini/settings.json. "
+            "This adds two hooks to ~/.gemini/settings.json: BeforeTool, "
+            "and BeforeAgent so Reezyn remembers what you asked. "
             "Reezyn keeps a backup and never replaces your other hooks.",
         )
 

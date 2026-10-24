@@ -66,6 +66,118 @@ def test_cursor_watcher_reads_a_new_transcript(tmp_path):
         watcher.stop()
 
 
+def test_cursor_user_message_becomes_a_prompt(tmp_path):
+    root = tmp_path / "projects"
+    session = root / "Users-me-app" / "agent-transcripts" / "cursor-session-3"
+    session.mkdir(parents=True)
+    transcript = session / "cursor-session-3.jsonl"
+    records = [
+        {
+            "role": "user",
+            "message": {"content": [{"type": "text", "text": "why does login fail?"}]},
+        },
+        {
+            "role": "assistant",
+            "message": {
+                "content": [
+                    {"type": "thinking", "thinking": "Checking session.ts."},
+                    {"type": "tool_use", "name": "read_file", "input": {"path": "src/auth/session.ts"}},
+                ]
+            },
+        },
+    ]
+    transcript.write_text("\n".join(json.dumps(record) for record in records) + "\n")
+
+    seen = []
+    watcher = CursorWatcher(seen.append, root=root, poll_s=0.05)
+    for _ in range(10):
+        watcher.scan_now()
+        if any(event.kind == "prompt" for event in seen):
+            break
+        time.sleep(0.02)
+
+    prompts = [event for event in seen if event.kind == "prompt"]
+    assert [event.text for event in prompts] == ["why does login fail?"]
+    assert prompts[0].project == "Users-me-app"
+    assert any(event.kind == "reasoning" for event in seen)
+
+
+def test_opencode_prompts_carry_the_session_directory(tmp_path):
+    db = tmp_path / "opencode.db"
+    con = sqlite3.connect(db)
+    con.execute(
+        "CREATE TABLE session_message ("
+        "id TEXT PRIMARY KEY, session_id TEXT, type TEXT, seq INTEGER, "
+        "time_created INTEGER, time_updated INTEGER, data TEXT)"
+    )
+    con.execute("CREATE TABLE session_v2 (id TEXT PRIMARY KEY, directory TEXT)")
+    now_ms = int(time.time() * 1000)
+    con.execute("INSERT INTO session_v2 VALUES (?,?)", ("session-9", "/Users/me/app"))
+    con.execute(
+        "INSERT INTO session_message VALUES (?,?,?,?,?,?,?)",
+        (
+            "msg-user",
+            "session-9",
+            "user",
+            1,
+            now_ms,
+            now_ms,
+            json.dumps({"text": "why does login fail?", "time": {"created": now_ms}}),
+        ),
+    )
+    con.commit()
+    con.close()
+
+    seen = []
+    watcher = OpenCodeWatcher(seen.append, db_path=db, poll_s=0.05)
+    watcher.scan_now()
+
+    prompts = [event for event in seen if event.kind == "prompt"]
+    assert [event.text for event in prompts] == ["why does login fail?"]
+    assert prompts[0].project == "/Users/me/app"
+
+
+def test_opencode_legacy_user_parts_become_one_prompt(tmp_path):
+    db = tmp_path / "opencode.db"
+    con = sqlite3.connect(db)
+    con.execute(
+        "CREATE TABLE message (id TEXT PRIMARY KEY, session_id TEXT, time_created INTEGER, data TEXT)"
+    )
+    con.execute(
+        "CREATE TABLE part (id TEXT PRIMARY KEY, message_id TEXT, session_id TEXT, "
+        "time_created INTEGER, time_updated INTEGER, data TEXT)"
+    )
+    con.execute("CREATE TABLE session (id TEXT PRIMARY KEY, directory TEXT)")
+    now_ms = int(time.time() * 1000)
+    con.execute("INSERT INTO session VALUES (?,?)", ("session-old", "/Users/me/app"))
+    con.execute(
+        "INSERT INTO message VALUES (?,?,?,?)",
+        ("msg-user", "session-old", now_ms, json.dumps({"role": "user"})),
+    )
+    for index, text in enumerate(["why does login fail", "after a token refresh?"]):
+        con.execute(
+            "INSERT INTO part VALUES (?,?,?,?,?,?)",
+            (
+                f"part-{index}",
+                "msg-user",
+                "session-old",
+                now_ms + index,
+                now_ms + index,
+                json.dumps({"type": "text", "text": text}),
+            ),
+        )
+    con.commit()
+    con.close()
+
+    seen = []
+    watcher = OpenCodeWatcher(seen.append, db_path=db, poll_s=0.05)
+    watcher.scan_now()
+
+    prompts = [event for event in seen if event.kind == "prompt"]
+    assert [event.text for event in prompts] == ["why does login fail after a token refresh?"]
+    assert prompts[0].project == "/Users/me/app"
+
+
 def test_opencode_current_schema_watcher(tmp_path):
     db = tmp_path / "opencode.db"
     con = sqlite3.connect(db)

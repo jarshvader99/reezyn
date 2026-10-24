@@ -93,17 +93,20 @@ Start a new Claude Code session after installing the hook.
 uv run reezyn install gemini
 ```
 
-This adds a `BeforeTool` hook to `~/.gemini/settings.json`, with the same
-backup, idempotency, and uninstall behavior. Reezyn reads the hook's
-`transcript_path` and prefers explicit thought/reasoning parts.
+This adds two hooks to `~/.gemini/settings.json`: `BeforeTool`, with the same
+backup, idempotency, and uninstall behavior, and `BeforeAgent`, which carries
+the prompt you just submitted so Reezyn can recall earlier work. For tool calls
+Reezyn reads the hook's `transcript_path` and prefers explicit
+thought/reasoning parts.
 
 ### Codex CLI
 
 No install step. Reezyn watches new rollout files under
 `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` (or `$CODEX_HOME/sessions`).
 Start Reezyn before starting Codex so it can follow the new rollout as it is
-appended. It reads reasoning summaries, agent-reasoning events, function calls,
-shell commands, patches, MCP calls, and web searches.
+appended. It reads reasoning summaries, agent-reasoning events, the user message that
+starts each turn, function calls, shell commands, patches, MCP calls, and web
+searches.
 
 Codex sometimes stores reasoning as opaque `encrypted_content`. Reezyn skips
 that and uses the tool action instead.
@@ -112,7 +115,7 @@ that and uses the tool action instead.
 
 No install step. Reezyn watches Cursor Agent transcripts under
 `~/.cursor/projects/<project>/agent-transcripts/<session>/*.jsonl` (or
-`$CURSOR_PROJECTS_DIR`). It reads assistant `thinking`/`reasoning` blocks,
+`$CURSOR_PROJECTS_DIR`). It reads your prompts, assistant `thinking`/`reasoning` blocks,
 commentary, and `tool_use` / `tool_call` blocks. Text-only final answers are not
 read back to you.
 
@@ -124,7 +127,8 @@ watched when Cursor writes it.
 No install step. Reezyn reads OpenCode's local SQLite database read-only at
 `${OPENCODE_DATA:-${XDG_DATA_HOME:-$HOME/.local/share}/opencode}/opencode.db`.
 It supports the current v2 `session_message` schema (assistant `content` blocks
-of `reasoning`, `text`, and `tool`) and the older `message` + `part` schema.
+of `reasoning`, `text`, and `tool`, plus the `user` rows) and the older
+`message` + `part` schema, where user text parts make up the prompt.
 Recent assistant rows are re-scanned briefly so streamed text and tool state
 updates are picked up; WAL data is read without copying or modifying the
 database.
@@ -137,8 +141,8 @@ replayed beyond the short recent window.
 No install step. Reezyn watches Freebuff chat snapshots under
 `~/.config/manicode/projects/<project>/chats/<chat>/chat-messages.json` (or
 `$FREEBUFF_PROJECTS_DIR`). Assistant messages carry ordered `reasoning` text,
-commentary, and tool blocks. Reezyn reads the reasoning and tool calls and
-skips the final answer, as it does for Cursor.
+commentary, and tool blocks. Reezyn reads your prompts, the reasoning, and the tool
+calls, and skips the final answer, as it does for Cursor.
 
 Freebuff rewrites the snapshot as a turn advances rather than appending to it,
 so Reezyn re-reads a chat only when its size or mtime changes and speaks each
@@ -314,9 +318,14 @@ timestamps. It is the same ledger the spoken recall uses, so researching a
 feature starts from what the agent already found instead of from a blank
 search.
 
-Claude Code and Freebuff supply prompts today. The other watchers contribute
-conclusions and actions, so recap works for every agent, but recall at prompt
-time needs a prompt event: use `reezyn emit --kind prompt` for anything custom.
+Every agent Reezyn watches supplies prompts. Claude Code and Gemini CLI report
+them through `UserPromptSubmit` and `BeforeAgent` hooks; Codex rollouts, Cursor
+transcripts, OpenCode rows, and Freebuff snapshots carry your message in their
+own format. Each prompt is
+tied to a project — Codex's recorded `cwd`, OpenCode's session directory,
+Cursor's project folder, or the hook's `cwd` — so switching agents does not
+split the memory. Custom agents get the same behavior with
+`reezyn emit --kind prompt`.
 
 ## Configuration
 

@@ -1,8 +1,9 @@
 """Gemini CLI adapter.
 
-Gemini CLI exposes BeforeTool hooks with the tool input and a transcript path.
-The transcript schema is allowed to drift, so the extractor walks the common
-message shapes and prefers explicit thought/reasoning fields.
+Gemini CLI exposes BeforeTool hooks with the tool input and a transcript path,
+and a BeforeAgent hook carrying the prompt the developer just submitted. The
+transcript schema is allowed to drift, so the extractor walks the common message
+shapes and prefers explicit thought/reasoning fields.
 """
 
 from __future__ import annotations
@@ -23,13 +24,29 @@ class GeminiHookAdapter:
 
     def handle(self, payload: dict[str, Any]) -> list[Event]:
         event_name = str(payload.get("hook_event_name") or "")
+        session_id = str(payload.get("session_id") or "")
+        project = str(payload.get("cwd") or "")
+
+        if event_name == "BeforeAgent":
+            prompt = str(payload.get("prompt") or "").strip()
+            if not prompt:
+                return []
+            return [
+                Event(
+                    agent="gemini",
+                    kind="prompt",
+                    text=prompt,
+                    session_id=session_id,
+                    project=project,
+                )
+            ]
+
         tool_name = str(payload.get("tool_name") or "").strip()
         if event_name and event_name != "BeforeTool":
             return []
         if not tool_name:
             return []
 
-        session_id = str(payload.get("session_id") or "")
         transcript_path = str(payload.get("transcript_path") or "")
         reasoning = ""
         if transcript_path:
@@ -42,6 +59,7 @@ class GeminiHookAdapter:
                     kind="reasoning",
                     text=reasoning,
                     session_id=session_id,
+                    project=project,
                     tool_name=tool_name,
                     tool_input=_dict(payload.get("tool_input")),
                 )
@@ -51,6 +69,7 @@ class GeminiHookAdapter:
                 agent="gemini",
                 kind="tool",
                 session_id=session_id,
+                project=project,
                 tool_name=tool_name,
                 tool_input=_dict(payload.get("tool_input")),
             )

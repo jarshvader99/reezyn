@@ -159,6 +159,13 @@ def test_gemini_install_and_uninstall(tmp_path, monkeypatch):
     assert group["matcher"] == ".*"
     assert "hook gemini" in group["hooks"][0]["command"]
 
+    # The prompt hook is what gives Gemini the same recall as Claude Code.
+    prompt_group = settings["hooks"]["BeforeAgent"][0]
+    assert "matcher" not in prompt_group
+    prompt_hook = prompt_group["hooks"][0]
+    assert prompt_hook["command"].endswith("hook gemini")
+    assert prompt_hook["timeout"] == 5000  # milliseconds, per Gemini's schema
+
     removed = uninstall_hooks("gemini", system_home=tmp_path)
     assert removed.changed
     assert "hooks" not in json.loads(settings_path("gemini", tmp_path).read_text())

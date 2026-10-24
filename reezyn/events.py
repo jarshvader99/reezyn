@@ -26,12 +26,16 @@ class Event:
 
     def __post_init__(self) -> None:
         if not self.fingerprint:
+            # Prompts are identified by their text like reasoning is; tool
+            # events by the call. Otherwise every prompt in a session would
+            # share one fingerprint and be deduplicated away.
+            spoken = self.kind in ("reasoning", "prompt")
             self.fingerprint = make_fingerprint(
                 self.agent,
                 self.session_id,
                 self.kind,
-                self.text if self.kind == "reasoning" else self.tool_name,
-                "" if self.kind == "reasoning" else stable_tool_key(self.tool_input),
+                self.text if spoken else self.tool_name,
+                "" if spoken else stable_tool_key(self.tool_input),
             )
 
     def to_dict(self) -> dict[str, Any]:

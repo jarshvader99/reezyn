@@ -82,6 +82,38 @@ def test_claude_assistant_text_supports_thinking():
     assert assistant_text(record) == "I should read the tests first."
 
 
+def test_codex_prompts_join_the_session_project(tmp_path):
+    root = tmp_path / "sessions"
+    day = root / "2026" / "10" / "23"
+    day.mkdir(parents=True)
+    rollout = day / "rollout-2026-10-23T10-00-00-codex-session-9.jsonl"
+    records = [
+        {"type": "session_meta", "payload": {"id": "codex-session-9", "cwd": "/Users/me/app"}},
+        {
+            "type": "response_item",
+            "payload": {
+                "type": "message",
+                "role": "user",
+                "content": [{"type": "input_text", "text": "why does login fail after refresh?"}],
+            },
+        },
+        {"type": "event_msg", "payload": {"type": "user_message", "message": "and after a reload?"}},
+    ]
+    rollout.write_text("\n".join(json.dumps(record) for record in records) + "\n")
+
+    seen: list[Event] = []
+    watcher = CodexWatcher(seen.append, root=root, poll_s=0.05)
+    watcher.scan_now()
+
+    prompts = [event for event in seen if event.kind == "prompt"]
+    assert [event.text for event in prompts] == [
+        "why does login fail after refresh?",
+        "and after a reload?",
+    ]
+    # The cwd from session_meta is what joins this session to the project ledger.
+    assert all(event.project == "/Users/me/app" for event in prompts)
+
+
 def test_codex_parser_handles_reasoning_and_tools():
     events: list[Event] = []
     for line in (FIXTURES / "codex_rollout.jsonl").read_text().splitlines():
@@ -146,6 +178,26 @@ def test_gemini_extracts_thought_parts(tmp_path):
     assert len(events) == 1
     assert events[0].kind == "reasoning"
     assert "rotates the cookie" in events[0].text
+
+
+def test_gemini_prompt_hook_captures_the_question():
+    adapter = GeminiHookAdapter()
+    events = adapter.handle(
+        {
+            "session_id": "gemini-2",
+            "hook_event_name": "BeforeAgent",
+            "cwd": "/Users/me/reezyn",
+            "transcript_path": "/Users/me/.gemini/tmp/reezyn/chats/session-1.json",
+            "prompt": "why is the refresh token still valid?",
+        }
+    )
+    assert len(events) == 1
+    assert events[0].kind == "prompt"
+    assert events[0].project == "/Users/me/reezyn"
+    assert events[0].text == "why is the refresh token still valid?"
+
+    clean = sanitize_hook_payload("gemini", {"prompt": events[0].text, "cwd": "/x"})
+    assert clean["prompt"] == events[0].text
 
 
 def test_gemini_transcript_shape_variants():

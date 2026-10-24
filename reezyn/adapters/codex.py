@@ -48,6 +48,8 @@ class CodexWatcher:
         self._thread: threading.Thread | None = None
         self._files: dict[Path, JsonlTail] = {}
         self._seen: dict[str, float] = {}
+        self._projects: dict[str, str] = {}
+        self._sessions: dict[Path, str] = {}
         self._last_scan = 0.0
 
     def start(self) -> None:
@@ -89,7 +91,17 @@ class CodexWatcher:
                 continue
             for record in records:
                 session_id = _session_id(path, record)
-                for event in parse_rollout_record(record, session_id, path):
+                if record.get("type") == "session_meta":
+                    # The meta line names the session; later lines only repeat it
+                    # in the filename, which is not always present.
+                    self._sessions[path] = session_id
+                else:
+                    session_id = self._sessions.get(path, session_id)
+                cwd = session_cwd(record)
+                if cwd:
+                    self._projects[session_id] = cwd
+                project = self._projects.get(session_id, "")
+                for event in parse_rollout_record(record, session_id, path, project):
                     key = event.fingerprint
                     seen_at = self._seen.get(key)
                     if seen_at is not None and time.monotonic() - seen_at < 10:
@@ -101,6 +113,10 @@ class CodexWatcher:
                         pass
             if len(self._seen) > 5000:
                 self._seen.clear()
+            if len(self._projects) > 1000:
+                self._projects.clear()
+            if len(self._sessions) > 1000:
+                self._sessions.clear()
 
     def _discover(self, prime: bool) -> None:
         if not self._root.exists():
@@ -128,7 +144,10 @@ class CodexWatcher:
 
 
 def parse_rollout_record(
-    record: dict[str, Any], session_id: str, path: Path | None = None
+    record: dict[str, Any],
+    session_id: str,
+    path: Path | None = None,
+    project: str = "",
 ) -> list[Event]:
     """Turn one rollout line into zero or more normalized events."""
 
@@ -144,13 +163,27 @@ def parse_rollout_record(
     if record_type == "session_meta":
         return []
 
+    events: list[Event] = []
     if record_type == "response_item" or payload.get("type") in _RESPONSE_TYPES:
-        return _response_item_events(payload, session_id, ts)
+        events = _response_item_events(payload, session_id, ts)
+    elif record_type == "event_msg":
+        events = _event_msg_events(payload, session_id, ts)
+    if project:
+        for event in events:
+            event.project = project
+    return events
 
-    if record_type == "event_msg":
-        return _event_msg_events(payload, session_id, ts)
 
-    return []
+def session_cwd(record: dict[str, Any]) -> str:
+    """The working directory Codex records in the rollout's first line."""
+
+    if record.get("type") != "session_meta":
+        return ""
+    payload = record.get("payload")
+    if not isinstance(payload, dict):
+        return ""
+    cwd = payload.get("cwd")
+    return cwd.strip() if isinstance(cwd, str) else ""
 
 
 _RESPONSE_TYPES = {
@@ -180,6 +213,19 @@ def _response_item_events(payload: dict[str, Any], session_id: str, ts: float) -
         ]
 
     if item_type == "message":
+        if payload.get("role") in ("user", "human"):
+            text = _message_text(payload)
+            if not text:
+                return []
+            return [
+                Event(
+                    agent="codex",
+                    kind="prompt",
+                    text=text,
+                    session_id=session_id,
+                    ts=ts,
+                )
+            ]
         if payload.get("role") != "assistant":
             return []
         if payload.get("phase") not in ("commentary",):
@@ -239,6 +285,21 @@ def _response_item_events(payload: dict[str, Any], session_id: str, ts: float) -
 
 def _event_msg_events(payload: dict[str, Any], session_id: str, ts: float) -> list[Event]:
     event_type = payload.get("type")
+
+    if event_type == "user_message":
+        message = payload.get("message")
+        text = message.strip() if isinstance(message, str) else _message_text(payload)
+        if not text:
+            return []
+        return [
+            Event(
+                agent="codex",
+                kind="prompt",
+                text=text,
+                session_id=session_id,
+                ts=ts,
+            )
+        ]
 
     if event_type in ("agent_reasoning", "agent_reasoning_raw_content"):
         text = str(payload.get("text") or "").strip()
