@@ -49,6 +49,8 @@ class ReezynMenuApp(rumps.App):
         self._volume_epoch = -1
         self._download_error = ""
         self._download_thread: threading.Thread | None = None
+        self._remote_checked = 0.0
+        self._remote_info: dict[str, Any] = {}
 
         self._icon_ready = False
         self._icon_failed = False
@@ -158,6 +160,29 @@ class ReezynMenuApp(rumps.App):
             )
         )
 
+        self.remote_menu = rumps.MenuItem("Remote access")
+        self.remote_toggle = rumps.MenuItem(
+            "Turn on remote access", callback=self._toggle_remote
+        )
+        self.remote_show = rumps.MenuItem(
+            "Show connection…", callback=self._show_remote
+        )
+        self.remote_code = rumps.MenuItem(
+            "New pairing code", callback=self._new_pairing_code
+        )
+        self.remote_forget = rumps.MenuItem(
+            "Forget paired phones", callback=self._forget_phones
+        )
+        self.remote_tailscale = rumps.MenuItem(
+            "Tailscale setup…", callback=self._tailscale_help
+        )
+        self.remote_menu.add(self.remote_toggle)
+        self.remote_menu.add(self.remote_show)
+        self.remote_menu.add(self.remote_code)
+        self.remote_menu.add(rumps.separator)
+        self.remote_menu.add(self.remote_forget)
+        self.remote_menu.add(self.remote_tailscale)
+
         hooks_menu = rumps.MenuItem("Install agent hooks")
         hooks_menu.add(rumps.MenuItem("Claude Code…", callback=self._install_claude))
         hooks_menu.add(rumps.MenuItem("Gemini CLI…", callback=self._install_gemini))
@@ -198,6 +223,7 @@ class ReezynMenuApp(rumps.App):
             self.conversation_item,
             self.confirm_item,
             self.permissions_menu,
+            self.remote_menu,
             rumps.separator,
             hooks_menu,
             self.download_item,
@@ -294,6 +320,7 @@ class ReezynMenuApp(rumps.App):
         self.conversation_item.state = 1 if self.service.config.voice.conversation else 0
         self.confirm_item.state = 1 if self.service.config.voice.confirm_send else 0
         self._refresh_permissions()
+        self._refresh_remote()
         self._refresh_system_volume()
         self.download_item.hidden = status.model_ready
         if status.state != self._last_status:
@@ -548,6 +575,217 @@ class ReezynMenuApp(rumps.App):
         self.config = self.service.config
         self._tick()
 
+    def _refresh_remote(self, force: bool = False) -> None:
+        now = time.monotonic()
+        if not force and now - self._remote_checked < 2.0:
+            return
+        self._remote_checked = now
+        try:
+            info = self.service.remote_info()
+        except Exception:
+            info = {}
+        self._remote_info = info
+        running = bool(info.get("running"))
+        self.remote_menu.title = "Remote access · on" if running else "Remote access"
+        self.remote_toggle.title = (
+            "Turn off remote access" if running else "Turn on remote access"
+        )
+        self.remote_toggle.state = 1 if running else 0
+        for item in (self.remote_show, self.remote_code, self.remote_forget):
+            item.hidden = not running
+
+    def _toggle_remote(self, _sender: Any = None) -> None:
+        self._refresh_remote(force=True)
+        enabling = not bool(self._remote_info.get("running"))
+        if not enabling:
+            self.service.set_remote(False)
+            self._refresh_remote(force=True)
+            self._tick()
+            return
+
+        ok = self.service.set_remote(True)
+        if ok:
+            # Give a working Serve mapping a few seconds to answer, so the
+            # first alert can include the real URL instead of asking again.
+            self.service.remote_wait(10.0)
+        self._refresh_remote(force=True)
+        info = self._remote_info
+        self._tick()
+        if not ok:
+            rumps.alert(
+                title="Remote access is not available",
+                message=(
+                    (info.get("error") or "The page could not start.")
+                    + "\n\n"
+                    + self._tailscale_text()
+                ),
+                ok="OK",
+            )
+            return
+
+        code = str(info.get("code") or "")
+        url = str(info.get("url") or info.get("local_url") or "")
+        local = str(info.get("local_url") or "")
+        setup = str(info.get("setup_url") or "")
+        lines = []
+        if info.get("https"):
+            lines += [
+                "Open this on your phone, with Tailscale connected:",
+                url,
+                "",
+            ]
+        else:
+            lines += [
+                "The page is running on this Mac, but it is not published to "
+                "your tailnet yet.",
+                "",
+            ]
+            detail = str(info.get("error") or "").strip()
+            if detail:
+                lines += [detail, ""]
+            if setup:
+                _copy(setup)
+                lines += [
+                    "The enable link is on your clipboard. Open it once, then "
+                    "turn remote access off and on.",
+                    "",
+                ]
+            if info.get("publishing"):
+                lines += ["Still publishing to Tailscale; check Show connection in a few seconds.", ""]
+            lines += ["Local test address: " + local, ""]
+        if code:
+            minutes = max(1, int(info.get("code_expires_s") or 0) // 60)
+            lines += [f"Pairing code: {code}  (expires in about {minutes} min)", ""]
+        lines += [
+            "The Mac stays awake while remote access is on. Sending still "
+            "needs the screen unlocked; replies queue until you unlock it.",
+            "",
+            "Find the address and code again under Remote access → "
+            "Show connection.",
+        ]
+        if not info.get("https"):
+            lines += ["", self._tailscale_text()]
+        rumps.alert(
+            title=(
+                "Reezyn on your phone"
+                if info.get("https")
+                else "Remote access is local only"
+            ),
+            message="\n".join(lines),
+            ok="Done",
+        )
+        if setup:
+            if rumps.alert(
+                title="Enable Tailscale Serve",
+                message=(
+                    "Tailscale needs a one-time approval before this Mac can be "
+                    "reached from your phone.\n\nOpen the enable link now?"
+                ),
+                ok="Open link",
+                cancel="Later",
+            ) == 1:
+                try:
+                    subprocess.Popen(["open", setup])
+                except OSError:
+                    pass
+
+    def _show_remote(self, _sender: Any = None) -> None:
+        self._refresh_remote(force=True)
+        info = self._remote_info
+        if not info.get("running"):
+            rumps.alert(
+                title="Remote access",
+                message="Remote access is off. Turn it on from the Reezyn menu.",
+                ok="OK",
+            )
+            return
+        lines = ["Open on your phone:", str(info.get("url") or "")]
+        if not info.get("https"):
+            lines += ["", str(info.get("error") or "Not published to the tailnet.")]
+            setup = str(info.get("setup_url") or "")
+            if setup:
+                _copy(setup)
+                lines += ["", "Enable link (copied):", setup]
+            if info.get("publishing"):
+                lines += ["", "Still publishing to Tailscale…"]
+            lines += ["", self._tailscale_text()]
+        code = str(info.get("code") or "")
+        if code:
+            minutes = max(1, int(info.get("code_expires_s") or 0) // 60)
+            lines += ["", f"Pairing code: {code}  (about {minutes} min left)"]
+        else:
+            lines += ["", "Pairing code: none active. Use New pairing code."]
+        lines += [
+            "",
+            f"Paired phones: {int(info.get('paired') or 0)}",
+            f"Queued replies: {int(info.get('queued') or 0)}",
+            "Mac: " + ("locked" if info.get("locked") else "unlocked"),
+        ]
+        terminal = str(info.get("terminal") or "")
+        if terminal:
+            lines.append("Last terminal: " + terminal)
+        rumps.alert(title="Reezyn remote", message="\n".join(lines), ok="Done")
+
+    def _new_pairing_code(self, _sender: Any = None) -> None:
+        code = self.service.remote_new_code()
+        if not code:
+            rumps.alert(
+                title="Pairing code",
+                message="Turn remote access on first.",
+                ok="OK",
+            )
+            return
+        self._refresh_remote(force=True)
+        url = str(self._remote_info.get("url") or "")
+        message = f"Pairing code: {code}\n\nIt expires in 15 minutes."
+        if url:
+            message += f"\n\nOpen on your phone:\n{url}"
+        rumps.alert(title="Reezyn pairing", message=message, ok="Done")
+
+    def _forget_phones(self, _sender: Any = None) -> None:
+        count = self.service.remote_forget_phones()
+        self._refresh_remote(force=True)
+        rumps.alert(
+            title="Paired phones",
+            message=(
+                f"Forgot {count} paired phone{'s' if count != 1 else ''}.\n\n"
+                "Pair again with a new code from the menu."
+            ),
+            ok="OK",
+        )
+
+    def _tailscale_help(self, _sender: Any = None) -> None:
+        rumps.alert(
+            title="Tailscale",
+            message=self._tailscale_text(),
+            ok="OK",
+        )
+
+    def _tailscale_text(self) -> str:
+        try:
+            from .remote import tailscale
+
+            state = tailscale.status()
+            if not state.get("available"):
+                detail = "Tailscale's command line is not installed yet."
+            elif state.get("running"):
+                detail = "Connected as " + str(state.get("dns_name") or state.get("ip") or "this Mac") + "."
+            else:
+                detail = str(state.get("reason") or "Tailscale is not connected.")
+            help_text = tailscale.INSTALL_HELP
+        except Exception as exc:
+            detail = str(exc)
+            help_text = "Remote access needs the Tailscale app and its command line."
+        return (
+            detail
+            + "\n\n"
+            + help_text
+            + "\n\nReezyn uses Tailscale Serve for HTTPS. It opens no router "
+            "ports and is never exposed to the public internet. If Serve asks, "
+            "enable HTTPS certificates for your tailnet in the Tailscale admin "
+            "console."
+        )
+
     def _refresh_permissions(self, force: bool = False) -> None:
         now = time.monotonic()
         if not force and now - self._permissions_checked < 2.5:
@@ -651,6 +889,13 @@ class ReezynMenuApp(rumps.App):
     def _quit(self, _sender: Any = None) -> None:
         self.service.stop()
         rumps.quit_application()
+
+
+def _copy(text: str) -> None:
+    try:
+        subprocess.run(["pbcopy"], input=text.encode("utf-8"), check=False, timeout=2)
+    except Exception:
+        pass
 
 
 def _agent_label(agent: str) -> str:

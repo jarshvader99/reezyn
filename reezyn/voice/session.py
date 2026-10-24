@@ -18,6 +18,7 @@ from typing import Any
 
 from ..config import VoiceConfig
 from ..languages import DEFAULT_PACK, LanguagePack
+from ..main_thread import call_on_main
 from .asr import SpeechEngine, locale_for_language
 from .audio import Microphone
 from .typing import Typer
@@ -64,6 +65,7 @@ class VoiceSession:
         auto_poll: bool = True,
         ack: Callable[[], None] | None = None,
         vocabulary: Callable[[], list[str]] | None = None,
+        on_permission_answer: Callable[[bool], None] | None = None,
     ) -> None:
         self._config = config
         self._narrator = narrator
@@ -73,6 +75,7 @@ class VoiceSession:
         self._auto_poll = auto_poll
         self._ack = ack
         self._vocabulary = vocabulary
+        self._on_permission_answer = on_permission_answer
 
         self._typer = typer or Typer(config.allow_apps, config.require_text_field)
         self._engine = engine
@@ -475,6 +478,11 @@ class VoiceSession:
                 self._typer.press_return()
             else:
                 self._typer.press_escape()
+            if self._on_permission_answer is not None:
+                try:
+                    self._on_permission_answer(intent == "allow")
+                except Exception:
+                    log.debug("permission answer handler failed", exc_info=True)
             with self._lock:
                 self._permission = False
                 self._confirming = False
@@ -606,12 +614,17 @@ class VoiceSession:
             except Exception:
                 pass
             return
-        try:
+        def play() -> None:
             from AppKit import NSSound
 
             sound = NSSound.soundNamed_("Tink")
             if sound is not None:
                 sound.play()
+
+        try:
+            # NSSound is AppKit: playing it from the ack worker corrupts
+            # AppKit's own memory and can crash the menu bar later.
+            call_on_main(play, timeout=0.5)
         except Exception:
             log.debug("could not play the listening sound", exc_info=True)
 

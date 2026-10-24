@@ -50,6 +50,11 @@ for distribution in (
 
 hiddenimports += ["rumps.notifications", "objc", "CoreFoundation", "AppKit"]
 
+# The phone page is plain files served by the in-process HTTP server.
+datas += [
+    (str(ROOT / "reezyn" / "remote" / "web"), "reezyn/remote/web"),
+]
+
 icon = ROOT / "build" / "Reezyn.icns"
 
 a = Analysis(

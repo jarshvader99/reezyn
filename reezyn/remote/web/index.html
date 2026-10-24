@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0e120f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Reezyn">
+  <title>Reezyn</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <section id="pair" class="pair hidden">
+    <div class="seedling" aria-hidden="true">🌱</div>
+    <h1>Reezyn</h1>
+    <p class="muted">Pair this phone with the Mac. The six-digit code is in the Reezyn menu under <strong>Remote access</strong>.</p>
+    <form id="pair-form" autocomplete="off">
+      <input id="pair-code" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" aria-label="Pairing code">
+      <button id="pair-button" class="primary" type="submit">Pair</button>
+    </form>
+    <p id="pair-error" class="error" role="alert"></p>
+    <p class="fine">Only devices on your Tailscale network can reach this page.</p>
+  </section>
+
+  <main id="app" class="app hidden">
+    <header>
+      <div class="brand"><span class="pulse" id="pulse"></span><span>Reezyn</span></div>
+      <div id="connection" class="conn" aria-live="polite">connecting</div>
+    </header>
+
+    <section class="hero">
+      <div class="meta">
+        <span id="agent" class="agent">No agent yet</span>
+        <span id="state" class="pill">idle</span>
+      </div>
+      <div id="project" class="project"></div>
+      <div id="current" class="current">Waiting for the next thought.</div>
+    </section>
+
+    <div id="banners" class="banners"></div>
+
+    <section id="permission" class="card permission hidden">
+      <div class="card-title">The agent is waiting</div>
+      <p id="permission-text"></p>
+      <div class="actions">
+        <button id="allow" class="primary">Allow</button>
+        <button id="deny" class="ghost">Deny</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-title">Live</div>
+      <div id="voice" class="voice hidden"></div>
+      <ol id="feed" class="feed"></ol>
+      <div id="empty" class="empty">Nothing has been spoken yet.</div>
+    </section>
+
+    <section class="card composer">
+      <label class="sr-only" for="reply">Reply to the agent</label>
+      <textarea id="reply" rows="3" placeholder="Reply to the agent…"></textarea>
+      <div class="actions wrap">
+        <button id="send" class="primary">Send</button>
+        <button id="mic" class="ghost mic">Hold to talk</button>
+        <button id="recap" class="ghost">Recap</button>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="speak">
+        <span>Read new lines aloud</span>
+      </label>
+      <p class="fine">Sending types into the focused terminal and presses Return. A locked Mac keeps the reply in a queue.</p>
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    </section>
+
+    <footer>
+      <span id="footer-status">Local and private</span>
+    </footer>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

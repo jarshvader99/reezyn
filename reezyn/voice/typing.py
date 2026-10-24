@@ -12,6 +12,8 @@ import logging
 import time
 from collections.abc import Callable, Iterable
 
+from ..main_thread import call_on_main
+
 log = logging.getLogger("reezyn")
 
 RETURN_KEY = 36
@@ -44,14 +46,38 @@ def request_accessibility() -> None:
         log.debug("could not prompt for accessibility", exc_info=True)
 
 
-def frontmost_bundle_id() -> str:
-    try:
-        from AppKit import NSWorkspace
+_FRONTMOST_CACHE_S = 0.15
+_frontmost_value = ""
+_frontmost_at = 0.0
 
-        application = NSWorkspace.sharedWorkspace().frontmostApplication()
-        return str(application.bundleIdentifier() or "")
+
+def _frontmost_bundle_id() -> str:
+    from AppKit import NSWorkspace
+
+    application = NSWorkspace.sharedWorkspace().frontmostApplication()
+    return str(application.bundleIdentifier() or "")
+
+
+def frontmost_bundle_id(fresh: bool = False) -> str:
+    """The bundle id of the frontmost app, read on the AppKit main thread.
+
+    The voice loop calls this while it is deciding whether to listen, so a
+    short cache keeps it from asking the main thread twenty times a second.
+    Callers that are about to type pass ``fresh=True``; a 150 ms stale answer
+    is fine for arming the microphone but not for choosing where keys go.
+    """
+
+    global _frontmost_value, _frontmost_at
+    now = time.monotonic()
+    if not fresh and now - _frontmost_at < _FRONTMOST_CACHE_S:
+        return _frontmost_value
+    try:
+        value = str(call_on_main(_frontmost_bundle_id, timeout=0.5) or "")
     except Exception:
         return ""
+    _frontmost_value = value
+    _frontmost_at = now
+    return value
 
 
 def focused_role() -> str:
@@ -101,7 +127,7 @@ def guard(allow_apps: Iterable[str], require_text_field: bool = True) -> tuple[b
             "Grant Reezyn Accessibility access in System Settings → Privacy & "
             "Security → Accessibility.",
         )
-    bundle = frontmost_bundle_id()
+    bundle = frontmost_bundle_id(fresh=True)
     allowed = list(allow_apps)
     if allowed and bundle not in allowed:
         return (

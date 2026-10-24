@@ -23,6 +23,10 @@ def test_config_round_trip(tmp_path, monkeypatch):
     assert config.agents.freebuff is True
     assert config.ambience.enabled is False
     assert config.ambience.volume == 0.35
+    assert config.remote.enabled is False
+    assert config.remote.port == 8787
+    assert config.remote.keep_awake is True
+    assert config.remote.read_aloud is False
 
     config = with_voice(config, "am_michael")
     config = with_speed(config, 1.01)
@@ -72,6 +76,25 @@ def test_config_clamps_bad_values(tmp_path):
     assert config.agents.freebuff is True
     assert config.ambience.enabled is False
     assert config.ambience.volume == 0.35
+
+
+def test_remote_config_round_trips_and_clamps_the_port(tmp_path):
+    (tmp_path / "config.toml").write_text(
+        "[remote]\n"
+        "enabled = true\n"
+        "port = 80\n"
+        "keep_awake = false\n"
+        "session_days = 7\n"
+    )
+    config = load_config(tmp_path)
+    assert config.remote.enabled is True
+    assert config.remote.port == 1024
+    assert config.remote.keep_awake is False
+    assert config.remote.session_days == 7
+
+    config.remote.port = 9000
+    config.save(tmp_path)
+    assert load_config(tmp_path).remote.port == 9000
 
 
 def test_ambience_levels_are_few_and_quiet():

@@ -508,3 +508,100 @@ def test_closing_event_is_silent_when_conversation_is_off(tmp_path):
         assert speaker.spoken == []
     finally:
         service.stop()
+
+
+def test_phone_read_aloud_parks_the_microphone_too(tmp_path, monkeypatch):
+    sessions: list[FakeVoice] = []
+
+    class Session(FakeVoice):
+        def __init__(self, *_args, **_kwargs) -> None:
+            super().__init__()
+            self.stopped = 0
+            sessions.append(self)
+
+        def stop(self) -> None:
+            self.stopped += 1
+
+    monkeypatch.setattr("reezyn.service.VoiceSession", Session)
+    home = tmp_path / "state"
+    config = Config(
+        voice=VoiceConfig(enabled=True, conversation=True, ack_sound=False),
+        agents=AgentsConfig(
+            claude=False,
+            codex=False,
+            gemini=False,
+            cursor=False,
+            opencode=False,
+            freebuff=False,
+        ),
+    )
+    speaker = FakeSpeaker()
+    service = ReezynService(config, home, speaker=speaker)
+    service.start()
+    try:
+        first = service.voice
+        assert first is not None
+
+        service.set_remote_listening(True)
+        assert service.voice is None
+        assert first.stopped == 1
+
+        service.set_remote_listening(False)
+        assert service.voice is not None
+        assert service.voice is not first
+    finally:
+        service.stop()
+
+
+def test_phone_read_aloud_keeps_the_mac_silent_until_it_stops(tmp_path):
+    home = tmp_path / "state"
+    config = Config(
+        narration=NarrationConfig(
+            debounce_ms=20, stale_after_s=5, min_gap_s=0, connectors=False
+        ),
+        agents=AgentsConfig(
+            claude=False,
+            codex=False,
+            gemini=False,
+            cursor=False,
+            opencode=False,
+            freebuff=False,
+        ),
+    )
+    speaker = FakeSpeaker()
+    service = ReezynService(config, home, speaker=speaker)
+    service.start()
+    try:
+        service.set_remote_listening(True)
+        # The current output must be released, not just skipped, or the Mac
+        # keeps the AirPods on the wrong device.
+        assert getattr(speaker, "output_resets", 0) == 1
+        assert service.remote_snapshot()["phone_audio"] is True
+
+        service._submit_event(
+            Event(
+                agent="claude",
+                kind="tool",
+                tool_name="Read",
+                tool_input={"path": "a.ts"},
+            )
+        )
+        assert _wait_for(lambda: bool(service.status().recent))
+        assert speaker.spoken == []
+        muted_line = service.status().recent[0]
+
+        service.set_remote_listening(False)
+        assert service.remote_snapshot()["phone_audio"] is False
+        service._submit_event(
+            Event(
+                agent="claude",
+                kind="tool",
+                tool_name="Edit",
+                tool_input={"path": "b.ts"},
+            )
+        )
+        assert _wait_for(lambda: bool(speaker.spoken))
+        assert speaker.spoken
+        assert muted_line not in speaker.spoken
+    finally:
+        service.stop()

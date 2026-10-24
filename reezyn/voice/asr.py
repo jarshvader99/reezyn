@@ -164,6 +164,72 @@ class SpeechEngine:
         return Recognition(self, [item for item in context if item][:50])
 
 
+def pcm_buffer(samples: Any, sample_rate: int) -> Any:
+    """Wrap mono float32 samples in an AVAudioPCMBuffer.
+
+    PyObjC exposes ``floatChannelData`` as a tuple of varlists; ``as_buffer``
+    is the safe way to write into that memory (varlists reject negative
+    indexes and slice assignment).
+    """
+
+    import AVFoundation
+    import numpy as np
+
+    values = np.array(samples, dtype=np.float32, copy=True).reshape(-1)
+    if values.size == 0:
+        raise ValueError("no audio was received")
+    np.clip(values, -1.0, 1.0, out=values)
+    rate = float(max(8000, min(96000, int(sample_rate))))
+    fmt = AVFoundation.AVAudioFormat.alloc().initWithCommonFormat_sampleRate_channels_interleaved_(
+        AVFoundation.AVAudioPCMFormatFloat32, rate, 1, False
+    )
+    buffer = AVFoundation.AVAudioPCMBuffer.alloc().initWithPCMFormat_frameCapacity_(
+        fmt, int(values.size)
+    )
+    buffer.setFrameLength_(int(values.size))
+    channel = buffer.floatChannelData()[0]
+    channel.as_buffer(int(values.size))[:] = values.tobytes()
+    return buffer
+
+
+def transcribe_samples(
+    samples: Any,
+    sample_rate: int,
+    locale_id: str = "en-US",
+    context: list[str] | None = None,
+    timeout: float = 12.0,
+) -> str:
+    """Recognize one recorded utterance, with no microphone involved.
+
+    This is the phone's push-to-talk path: the page records, downsamples, and
+    posts PCM; Apple's recognizer turns it into words on this Mac.
+    """
+
+    state = authorization_status()
+    if state != "authorized":
+        raise SpeechUnavailable(
+            "Speech Recognition is not allowed for Reezyn. Grant it in System "
+            "Settings → Privacy & Security → Speech Recognition."
+        )
+    engine = SpeechEngine(locale_id, on_device=True)
+    if not engine.available():
+        raise SpeechUnavailable(f"Speech recognition for {locale_id} is unavailable.")
+    import numpy as np
+
+    recognition = engine.begin(context or [])
+    try:
+        values = np.asarray(samples)
+        step = max(1, int(sample_rate))
+        for start in range(0, len(values), step):
+            recognition.append(pcm_buffer(values[start : start + step], sample_rate))
+        duration = len(values) / max(1, int(sample_rate))
+        wait = min(45.0, max(timeout, 5.0 + duration * 0.5))
+        return recognition.end(timeout=wait).strip()
+    finally:
+        if not recognition.done:
+            recognition.cancel()
+
+
 def locale_for_language(lang: str | None, override: str = "") -> str:
     """Map a Kokoro language code onto a Speech locale."""
 

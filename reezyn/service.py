@@ -27,6 +27,7 @@ from .languages import pack_for_voice
 from .ledger import LedgerStore
 from .narration import Narrator, select_excerpt
 from .recall import Recaller
+from .remote import RemoteServer
 from .runtime import clear_running, write_running
 from .spool import SpoolWatcher
 from .system_audio import DeviceWatcher
@@ -70,12 +71,19 @@ class ReezynService:
         self._started = False
         self._simulating = False
         self._active_agent = ""
+        # Set while a paired phone is reading new lines aloud. The Mac then
+        # stays silent: its narration is what makes macOS pull the AirPods off
+        # the phone, and two voices reading the same line is noise anyway.
+        self._remote_listening = False
+        # The phone cannot own Bluetooth headphones while the Mac's microphone
+        # or presence bed has an open stream either, so those are parked too.
+        self._ambience_parked_for_phone = False
 
         self.claude = ClaudeHookAdapter()
         self.gemini = GeminiHookAdapter()
         self.ambience = Ambience(config.ambience)
         self.narrator = Narrator(
-            speak=self.speaker.speak,
+            speak=self._speak_narration,
             config=config.narration,
             stop_speech=self.speaker.stop,
             on_change=self._changed,
@@ -89,6 +97,10 @@ class ReezynService:
             pack=pack_for_voice(config.speech.voice),
         )
         self._last_project = ""
+        self.remote: RemoteServer | None = None
+        # A permission event is the one thing the phone must act on; it stays
+        # visible until an answer arrives or another agent event moves work on.
+        self._pending_permission: dict[str, Any] | None = None
         self.voice: VoiceSession | None = None
         # Set while a closing answer is being spoken, so the microphone opens
         # when speech ends rather than while Reezyn is still talking.
@@ -126,6 +138,8 @@ class ReezynService:
             log.warning("Presence bed did not start: %s", self.ambience.error)
         self._devices.start()
         self.spool.start()
+        if self.config.remote.enabled:
+            self._start_remote()
         for name, watcher in (
             ("Codex", self.codex),
             ("Cursor", self.cursor),
@@ -154,6 +168,7 @@ class ReezynService:
                 watcher.stop()
         self._devices.stop()
         self.spool.stop()
+        self._stop_remote()
         self.narrator.stop()
         if self.voice is not None:
             self.voice.stop()
@@ -200,11 +215,16 @@ class ReezynService:
     # -- voice input -------------------------------------------------------
 
     def _start_voice(self) -> bool:
+        if self._remote_listening:
+            # The phone owns the audio route; starting the microphone here
+            # would pull the AirPods back to the Mac.
+            return True
         if self.voice is None:
             self.voice = VoiceSession(
                 self.config.voice,
                 narrator=self.narrator,
                 on_change=self._voice_changed,
+                on_permission_answer=self._permission_answered,
             )
         return self.voice.start()
 
@@ -236,6 +256,61 @@ class ReezynService:
         return self.voice.status() if self.voice is not None else None
 
     def _voice_changed(self, _snapshot: VoiceSnapshot | None = None) -> None:
+        self._changed()
+
+    def _speak_narration(self, text: str) -> bool:
+        with self._lock:
+            if self._remote_listening:
+                return True
+        return self.speaker.speak(text)
+
+    def set_remote_listening(self, active: bool) -> None:
+        """Mute the Mac while a phone is reading the feed aloud.
+
+        AirPods automatically hop to whichever device starts playing. Reezyn
+        narrates often, so leaving the Mac output running while the phone reads
+        keeps taking the headphones away from the phone and leaves it silent.
+        Releasing the output lets the phone keep the headphones, and the line
+        still lands in the feed and `recent` for the phone to read.
+        """
+
+        with self._lock:
+            if self._remote_listening == active:
+                return
+            self._remote_listening = active
+        if active:
+            release = getattr(self.speaker, "reset_output", None)
+            try:
+                if callable(release):
+                    release()
+                else:
+                    self.speaker.stop()
+            except Exception:
+                log.debug("could not release the Mac output", exc_info=True)
+            if self.ambience.running:
+                self._ambience_parked_for_phone = True
+                self.ambience.stop()
+            voice = self.voice
+            if voice is not None and self.config.voice.enabled:
+                self.voice = None
+                with self._lock:
+                    self._voice_pending = ""
+                try:
+                    voice.stop()
+                except Exception:
+                    log.debug("could not release the Mac microphone", exc_info=True)
+            log.info("phone read-aloud is on; Mac narration is muted")
+        else:
+            if self._ambience_parked_for_phone:
+                self._ambience_parked_for_phone = False
+                if self.config.ambience.enabled and not self.ambience.running:
+                    self.ambience.start()
+            if self.config.voice.enabled and self.voice is None:
+                try:
+                    self._start_voice()
+                except Exception:
+                    log.warning("could not reopen the Mac microphone", exc_info=True)
+            log.info("phone read-aloud is off; Mac narration is resumed")
         self._changed()
 
     @property
@@ -323,6 +398,119 @@ class ReezynService:
         if text:
             self.narrator.announce(text)
         return text
+
+    # -- remote access -----------------------------------------------------
+
+    def set_remote(self, enabled: bool) -> bool:
+        self.config.remote.enabled = enabled
+        if enabled:
+            ok = self._start_remote()
+            if not ok:
+                self.config.remote.enabled = False
+        else:
+            self._stop_remote()
+            ok = True
+        self.config.save(self.home)
+        self._changed()
+        return ok
+
+    def _start_remote(self) -> bool:
+        if self.remote is not None and self.remote.running:
+            return True
+        server = RemoteServer(self, self.home, self.config.remote)
+        started = server.start()
+        self.remote = server
+        if not started:
+            log.warning("remote access could not start: %s", server.info().get("error"))
+        self._changed()
+        return started
+
+    def _stop_remote(self) -> None:
+        server = self.remote
+        self.remote = None
+        if server is not None:
+            server.stop()
+        with self._lock:
+            self._pending_permission = None
+
+    def remote_info(self) -> dict[str, Any]:
+        if self.remote is not None:
+            return self.remote.info()
+        return {
+            "running": False,
+            "url": "",
+            "local_url": "",
+            "paired": 0,
+            "code": "",
+            "error": "",
+            "locked": False,
+            "queued": 0,
+            "terminal": "",
+        }
+
+    def remote_wait(self, timeout: float = 10.0) -> dict[str, Any]:
+        if self.remote is not None:
+            return self.remote.wait_publish(timeout)
+        return self.remote_info()
+
+    def remote_new_code(self) -> str:
+        return self.remote.new_code() if self.remote is not None else ""
+
+    def remote_forget_phones(self) -> int:
+        return self.remote.forget_phones() if self.remote is not None else 0
+
+    def remote_context(self) -> dict[str, Any]:
+        with self._lock:
+            return {"project": self._last_project, "agent": self._active_agent}
+
+    def remote_activity(self, kind: str, text: str = "") -> None:
+        # Never log the reply itself: it is a prompt, not diagnostics.
+        log.info("remote %s", kind)
+
+    def remote_permission_answered(self, allow: bool) -> None:
+        with self._lock:
+            self._pending_permission = None
+        self.remote_activity("permission", "allow" if allow else "deny")
+        self._changed()
+
+    def remote_snapshot(self) -> dict[str, Any]:
+        status = self.status()
+        voice = self.voice_snapshot()
+        with self._lock:
+            project = self._last_project
+            phone_audio = self._remote_listening
+            pending = dict(self._pending_permission) if self._pending_permission else None
+        if pending is not None:
+            age = time.time() - float(pending.get("ts") or 0)
+            if age > 180.0:
+                pending = None
+                with self._lock:
+                    self._pending_permission = None
+        return {
+            "state": status.state,
+            "paused": status.paused,
+            "speaking": status.speaking,
+            "current": status.current,
+            "recent": list(status.recent),
+            "active_agent": status.active_agent,
+            "agent": status.active_agent,
+            "project": project,
+            "last_error": status.last_error,
+            "model_ready": status.model_ready,
+            "simulating": status.simulating,
+            "phone_audio": phone_audio,
+            "voice": (
+                {
+                    "state": voice.state,
+                    "partial": voice.partial,
+                    "mode": voice.mode,
+                    "error": voice.error,
+                }
+                if voice is not None
+                else None
+            ),
+            "permission": pending,
+        }
 
     def set_speed(self, speed: float) -> None:
         self.config = with_speed(self.config, speed)
@@ -468,6 +656,11 @@ class ReezynService:
             # conversation back to the developer without another wake word.
             voice.open_for_conversation(permission=(pending == "permission"))
 
+    def _permission_answered(self, _allow: bool) -> None:
+        with self._lock:
+            self._pending_permission = None
+        self._changed()
+
     def _on_event(self, event: Event) -> None:
         self._submit_event(event)
 
@@ -488,10 +681,27 @@ class ReezynService:
                 line = ""
             if line:
                 self.narrator.announce(line)
-        if event.kind == "closing":
-            self._offer_conversation(event, permission=False)
-        elif event.kind == "permission":
+        if event.kind == "permission":
+            with self._lock:
+                self._pending_permission = {
+                    "text": " ".join((event.text or "").split())[:1200],
+                    "agent": event.agent,
+                    "session": event.session_id,
+                    "ts": time.time(),
+                }
             self._offer_conversation(event, permission=True)
+        elif event.kind in ("tool", "prompt", "closing"):
+            with self._lock:
+                pending = self._pending_permission
+                if pending is not None and pending.get("agent") == event.agent:
+                    if (
+                        not pending.get("session")
+                        or not event.session_id
+                        or pending.get("session") == event.session_id
+                    ):
+                        self._pending_permission = None
+            if event.kind == "closing":
+                self._offer_conversation(event, permission=False)
         self.narrator.submit(event)
 
     def _offer_conversation(self, event: Event, permission: bool) -> None:

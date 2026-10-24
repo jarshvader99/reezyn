@@ -119,6 +119,19 @@ class VoiceConfig:
 
 
 @dataclass(slots=True)
+class RemoteConfig:
+    enabled: bool = False
+    port: int = 8787
+    # Keep the Mac awake while the phone can reach it. Keystrokes still need an
+    # unlocked screen; this only prevents idle sleep from cutting the link.
+    keep_awake: bool = True
+    queue_when_locked: bool = True
+    # Default for the page's read-aloud toggle; the phone remembers its choice.
+    read_aloud: bool = False
+    session_days: int = 30
+
+
+@dataclass(slots=True)
 class AgentsConfig:
     claude: bool = True
     codex: bool = True
@@ -137,6 +150,7 @@ class Config:
     recall: RecallConfig = field(default_factory=RecallConfig)
     voice: VoiceConfig = field(default_factory=VoiceConfig)
     agents: AgentsConfig = field(default_factory=AgentsConfig)
+    remote: RemoteConfig = field(default_factory=RemoteConfig)
 
     def save(self, home: Path | None = None) -> Path:
         home = home or app_home()
@@ -153,6 +167,7 @@ class Config:
         m = self.ambience
         r = self.recall
         v = self.voice
+        remote = self.remote
         return (
             "# Reezyn configuration\n"
             "# Changes here are read when the menu-bar app starts.\n\n"
@@ -207,7 +222,14 @@ class Config:
             f"max_answer_words = {v.max_answer_words}\n"
             f"ack_sound = {str(v.ack_sound).lower()}\n"
             f"require_text_field = {str(v.require_text_field).lower()}\n"
-            f"allow_apps = {_quote_list(v.allow_apps)}\n"
+            f"allow_apps = {_quote_list(v.allow_apps)}\n\n"
+            "[remote]\n"
+            f"enabled = {str(remote.enabled).lower()}\n"
+            f"port = {remote.port}\n"
+            f"keep_awake = {str(remote.keep_awake).lower()}\n"
+            f"queue_when_locked = {str(remote.queue_when_locked).lower()}\n"
+            f"read_aloud = {str(remote.read_aloud).lower()}\n"
+            f"session_days = {remote.session_days}\n"
         )
 
 
@@ -240,6 +262,7 @@ def load_config(home: Path | None = None) -> Config:
     recall = _section(raw, "recall")
     voice = _section(raw, "voice")
     agents = _section(raw, "agents")
+    remote = _section(raw, "remote")
 
     config = Config(
         speech=SpeechConfig(
@@ -312,6 +335,16 @@ def load_config(home: Path | None = None) -> Config:
             cursor=_bool(agents.get("cursor"), True),
             opencode=_bool(agents.get("opencode"), True),
             freebuff=_bool(agents.get("freebuff"), True),
+        ),
+        remote=RemoteConfig(
+            enabled=_bool(remote.get("enabled"), False),
+            port=int(_clamp_float(remote.get("port"), 1024, 65535, 8787)),
+            keep_awake=_bool(remote.get("keep_awake"), True),
+            queue_when_locked=_bool(remote.get("queue_when_locked"), True),
+            read_aloud=_bool(remote.get("read_aloud"), False),
+            session_days=int(
+                _clamp_float(remote.get("session_days"), 1, 365, 30)
+            ),
         ),
     )
     return config

@@ -25,12 +25,19 @@ final answer and reopens the microphone, so a follow-up question never needs
 the keyboard. Speech recognition is Apple's on-device model, and no audio is
 written to disk.
 
+When you leave the desk, **Remote access** serves a small page to your phone
+over Tailscale: live activity, permission prompts, replies by text or voice,
+read-aloud, and a recap. It is off by default and never exposed to the public
+internet; see [Remote access](#remote-access).
+
 ## Requirements
 
 - macOS (the UI is a menu-bar app)
 - Python 3.11–3.13
 - [`uv`](https://docs.astral.sh/uv/)
 - An audio output device
+- [Tailscale](https://tailscale.com/) on the Mac and phone (optional, for
+  [Remote access](#remote-access))
 
 ## Install
 
@@ -234,6 +241,9 @@ Claude Code and Freebuff get.
 - **Ask before sending** — after a dictated pause, asks whether to submit
   instead of pressing Return by itself. On by default; the hot keyword still
   sends immediately.
+- **Remote access** — turns the phone page on or off, shows its Tailscale URL
+  and pairing code, issues a new code, or forgets paired phones. See
+  [Remote access](#remote-access).
 - **Voice permissions** — live status for Microphone, Speech Recognition, and
   Accessibility, with buttons that open the right System Settings panes.
 - **Install agent hooks** — writes the Claude or Gemini integration after a
@@ -437,6 +447,73 @@ require_text_field = true
 allow_apps = ["com.apple.Terminal", "com.googlecode.iterm2", "com.microsoft.VSCode", "com.todesktop.230313mzl4w4u92", "com.mitchellh.ghostty", "dev.warp.Warp-Stable", "com.github.wez.wezterm", "net.kovidgoyal.kitty", "org.alacritty", "co.zeit.hyper"]
 ```
 
+## Remote access
+
+Walk away from the Mac and keep the same session in your pocket. Reezyn can
+serve a small page that only your Tailscale network can open. It is off by
+default.
+
+For a step-by-step Tailscale walkthrough, the phone-page guide, troubleshooting,
+and release/notarization notes, see the [wiki](docs/wiki/Home.md).
+
+Choose **Remote access → Turn on remote access**. The first time, Tailscale asks
+you to enable Serve for this node; the menu copies that one-time link and offers
+to open it. Reezyn then publishes the page at an HTTPS name such as
+`https://your-mac.your-tailnet.ts.net` and shows a six-digit pairing code.
+
+Open the address on the phone with Tailscale connected, enter the code once, and
+the phone gets an HttpOnly session that lasts 30 days. The code itself expires
+after 15 minutes; generate another with **New pairing code**. Add the page to the
+Home Screen for a standalone app.
+
+On the phone:
+
+- **Live** shows the active agent and project, the current line, the last six
+  spoken lines, and what the Mac's microphone is hearing.
+- **Permission prompts** get Allow and Deny buttons, which press Return or
+  Escape in the terminal.
+- **Send** types a reply into the last terminal and presses Return. The Mac is
+  brought forward first, and Accessibility and the app allowlist are checked
+  again before anything is typed.
+- **Hold to talk** records while you hold the button. On release, the audio is
+  sent to the Mac, transcribed by Apple's on-device recognizer, and placed in the
+  reply box without submitting it.
+- **Read new lines aloud** uses the phone's own speech synthesis, so you can
+  listen instead of watching the screen. While it is reading, the Mac pauses
+  its narration, releases the audio output, and parks its microphone: otherwise
+  macOS keeps moving AirPods back to the Mac, and an open microphone stream pins
+  them there, so the phone falls silent. The Mac resumes as soon as read-aloud
+  is turned off, the page closes, or the phone stops checking in for 45
+  seconds.
+- **Recap** asks the Mac for the last 45 minutes and speaks it there (and on the
+  phone when read-aloud is on).
+
+The page listens on `127.0.0.1` and `tailscale serve` is the only way in. No
+router port is forwarded and nothing is exposed to the public internet. Pairing
+sessions are random bearer tokens stored only as SHA-256 hashes in
+`~/.reezyn/remote.json` (mode `0600`). **Forget paired phones** revokes every
+session, and pairing attempts are rate-limited.
+
+Keystrokes still need an unlocked screen. While remote access is on, Reezyn runs
+`caffeinate` to keep the Mac awake, but macOS locks on its own schedule or when
+the lid closes. A locked Mac keeps replies in a queue (up to 20, for 30 minutes)
+and says so on the page; unlock it and they are typed into the terminal.
+
+```toml
+[remote]
+enabled = false
+port = 8787             # loopback only; Tailscale Serve publishes it
+keep_awake = true       # caffeinate while remote access is on
+queue_when_locked = true
+read_aloud = false      # the page's initial read-aloud default
+session_days = 30       # how long a paired phone stays paired
+```
+
+If the menu reports **local only**, open the setup link it copied, enable Serve
+for the tailnet once, then turn remote access off and on. The Serve mapping
+remains after remote access is turned off, pointing at a closed port;
+`tailscale serve reset` removes it if you want it gone.
+
 ## Configuration
 
 Reezyn creates `~/.reezyn/config.toml`:
@@ -484,6 +561,9 @@ recap_minutes = 45.0    # default window for Recap the last session
 
 [voice]
 # See Voice input for the full set; the menu edits [voice] enabled/conversation.
+
+[remote]
+# See Remote access; the menu edits [remote] enabled.
 ```
 
 The menu writes voice, pace, presence-bed, banter, recall, and voice-input
@@ -538,9 +618,15 @@ wins until it goes quiet.
 - Voice input uses Apple's on-device recognizer. Microphone audio is streamed
   into the recognizer and never written to disk; transcripts are shown in the
   menu bar and typed into the focused app, not logged.
-- Voice input only probes for its wake word while a terminal-like text field is
-  focused, and only types into apps on `voice.allow_apps`.
-- The only network request is the one-time Kokoro model download.
+- Remote access binds to loopback and is published only through Tailscale
+  Serve. Traffic stays on your tailnet; Reezyn runs no cloud relay and stores
+  phone sessions as hashes. The menu shows the pairing code; the code is never
+  served by the page.
+- Phone recordings are posted over the tailnet to this Mac and recognized by
+  Apple's on-device model. They are held in memory for the request and never
+  written to disk.
+- Apart from the one-time Kokoro model download and Tailscale's own encrypted
+  connection between your devices, Reezyn makes no network requests.
 - No telemetry.
 
 The Kokoro model is Apache-2.0; `kokoro-onnx` is MIT. Reezyn does not vendor
@@ -598,6 +684,7 @@ reezyn/
   service.py     adapter → queue wiring
   tts.py         Kokoro setup, streaming playback, interruption
   voice/         wake word, dictation, on-device ASR, typing guard, session loop
+  remote/        loopback phone page, pairing, Tailscale Serve, remote typing
   spool.py       cross-process event handoff
   installers.py  backed-up hook install/uninstall
 packaging/       PyInstaller spec, icon, entitlements, build/sign script
@@ -644,6 +731,17 @@ packaging/       PyInstaller spec, icon, entitlements, build/sign script
 - Audio device changes are noticed within about two seconds. A narration line
   that is mid-flight when the output switches is cut rather than moved, and an
   utterance in progress when the input switches is discarded.
+- Remote access needs Tailscale on the Mac and the phone, and Serve enabled
+  once for the tailnet. The menu reports the one-time enable link when it is
+  missing. It is not a way to reach the Mac from the public internet.
+- A locked Mac cannot receive synthetic keystrokes. Remote replies queue until
+  you unlock it; permission prompts expire on the agent's own timer, so the
+  phone cannot answer one after the screen locks.
+- The phone can only type into apps on `voice.allow_apps`, and only when the
+  focused control is a text field. Reezyn brings the last terminal forward, but
+  it cannot focus a terminal that has quit.
+- Phone microphone access requires HTTPS, so use the Tailscale `.ts.net`
+  address; a `127.0.0.1` test address on the phone has no microphone access.
 - Bluetooth headsets can still sound thin while their microphone is in use: the
   system itself switches them to hands-free mode. Picking the built-in
   microphone (or another input) avoids that.
