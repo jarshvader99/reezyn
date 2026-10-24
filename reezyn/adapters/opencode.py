@@ -9,7 +9,6 @@ state updates are picked up without replaying the whole database.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import os
@@ -326,9 +325,3 @@ def _ms_to_seconds(value: Any) -> float:
         number = float(value)
         return number / 1000.0 if number > 10_000_000_000 else number
     return time.time()
-
-
-def _digest(value: Any) -> str:
-    return hashlib.sha1(
-        json.dumps(value, sort_keys=True, default=str).encode("utf-8", "replace")
-    ).hexdigest()[:12]

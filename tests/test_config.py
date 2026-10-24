@@ -16,6 +16,8 @@ def test_config_round_trip(tmp_path, monkeypatch):
     config = load_config(tmp_path)
     assert (tmp_path / "config.toml").exists()
     assert config.speech.voice == DEFAULT_VOICE
+    assert config.agents.cursor is True
+    assert config.agents.opencode is True
 
     config = with_voice(config, "am_michael")
     config = with_speed(config, 1.01)
@@ -47,6 +49,8 @@ def test_config_clamps_bad_values(tmp_path):
     assert config.narration.debounce_ms == 150
     assert config.narration.stale_after_s == 2
     assert config.agents.codex is False
+    assert config.agents.cursor is True
+    assert config.agents.opencode is True
 
 
 def test_invalid_toml_falls_back_to_defaults(tmp_path):
