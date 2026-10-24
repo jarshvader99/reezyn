@@ -238,10 +238,18 @@ def compose_narration(
     """Coalesce a burst of events into one calm spoken thought."""
 
     now = time.time() if now is None else now
+    ordered = sorted(events, key=lambda item: item.ts)
+    if not ordered:
+        return None
+    # Staleness is relative to the newest event in the burst, not to the end of
+    # the previous (possibly long) utterance. A hard age cap still prevents a
+    # laptop waking from sleep and narrating yesterday's work.
+    newest = ordered[-1].ts
+    hard_limit = max(6.0, config.stale_after_s * 2.0 + 3.0)
     fresh = [
         event
-        for event in sorted(events, key=lambda item: item.ts)
-        if now - event.ts <= config.stale_after_s
+        for event in ordered
+        if newest - event.ts <= config.stale_after_s and now - event.ts <= hard_limit
     ]
     if not fresh:
         return None
