@@ -76,7 +76,7 @@ class FreebuffWatcher:
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
             return
-        self._scan(prime=True)
+        self._scan(discover=True)
         self._stop.clear()
         self._thread = threading.Thread(target=self._run, name="reezyn-freebuff", daemon=True)
         self._thread.start()
@@ -87,17 +87,17 @@ class FreebuffWatcher:
             self._thread.join(timeout=3)
 
     def scan_now(self) -> None:
-        self._scan(prime=False, force=True)
+        self._scan(force=True)
 
     def _run(self) -> None:
         while not self._stop.is_set():
-            self._scan(prime=False)
+            self._scan()
             self._stop.wait(self._poll_s)
 
-    def _scan(self, prime: bool, force: bool = False) -> None:
+    def _scan(self, discover: bool = False, force: bool = False) -> None:
         now = time.monotonic()
-        if prime or force or now - self._last_scan >= 2.5:
-            self._discover(prime=prime)
+        if discover or force or now - self._last_scan >= 2.5:
+            self._discover()
             self._last_scan = now
 
         for path, state in list(self._chats.items()):
@@ -111,7 +111,7 @@ class FreebuffWatcher:
                 # as complete as it is going to get.
                 self._flush(state)
 
-    def _discover(self, prime: bool) -> None:
+    def _discover(self) -> None:
         # Keep the newest chats; old projects on this machine can hold a lot of
         # history that no running agent will touch again.
         newest = sorted(_chat_files(self._root), key=_mtime, reverse=True)[:MAX_TRACKED_CHATS]
@@ -121,10 +121,11 @@ class FreebuffWatcher:
                 continue
             state = _ChatState()
             self._chats[path] = state
-            if prime:
-                signature = _signature(path)
-                if signature is not None:
-                    self._prime(path, state, signature)
+            # A chat that is already on disk can contain a whole conversation.
+            # Prime it so resuming an old session does not replay it aloud.
+            signature = _signature(path)
+            if signature is not None:
+                self._prime(path, state, signature)
         for path in list(self._chats):
             if path not in current:
                 self._chats.pop(path, None)
