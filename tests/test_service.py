@@ -77,6 +77,12 @@ def test_service_spools_a_claude_hook_into_speech(tmp_path, monkeypatch):
             time.sleep(0.05)
         assert speaker.spoken
         assert "session middleware" in speaker.spoken[0]
+
+        while not service.status().recent and time.time() < deadline:
+            time.sleep(0.05)
+        status = service.status()
+        assert status.active_agent == "claude"
+        assert status.recent[0] == speaker.spoken[0]
     finally:
         service.stop()
     assert not is_running(home)

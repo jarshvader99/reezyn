@@ -14,6 +14,16 @@ from . import __version__
 from .config import CONFIG_ENV, SPEEDS, VOICES, Config, app_home, load_config
 from .service import ReezynService
 
+AGENT_LABELS = {
+    "claude": "Claude Code",
+    "codex": "Codex CLI",
+    "gemini": "Gemini CLI",
+    "cursor": "Cursor",
+    "opencode": "OpenCode",
+    "simulation": "Simulation",
+    "generic": "Custom",
+}
+
 
 class ReezynMenuApp(rumps.App):
     def __init__(self, config: Config | None = None, home: Path | None = None) -> None:
@@ -28,6 +38,10 @@ class ReezynMenuApp(rumps.App):
         self._download_thread: threading.Thread | None = None
 
         self.status_item = rumps.MenuItem("Starting…")
+        self.agent_item = rumps.MenuItem("Active agent: none yet")
+        self.agent_item.set_callback(None)
+        self.last_item = rumps.MenuItem("Last spoken: nothing yet")
+        self.last_item.set_callback(None)
         self.pause_item = rumps.MenuItem("Pause narration", callback=self._toggle_pause)
         self.skip_item = rumps.MenuItem("Skip this thought", callback=self._skip)
         self.recent_menu = rumps.MenuItem("Recent thoughts")
@@ -73,6 +87,8 @@ class ReezynMenuApp(rumps.App):
 
         self.menu = [
             self.status_item,
+            self.agent_item,
+            self.last_item,
             rumps.separator,
             self.pause_item,
             self.skip_item,
@@ -136,6 +152,15 @@ class ReezynMenuApp(rumps.App):
         if title != self._last_title:
             self.title = title
             self._last_title = title
+
+        agent = _agent_label(status.active_agent)
+        self.agent_item.title = f"Active agent: {agent}" if agent else "Active agent: none yet"
+        last_spoken = status.recent[0] if status.recent else ""
+        self.last_item.title = (
+            f"Last spoken: {_shorten(last_spoken, 72)}"
+            if last_spoken
+            else "Last spoken: nothing yet"
+        )
 
         self.pause_item.title = "Resume narration" if status.paused else "Pause narration"
         self.download_item.hidden = status.model_ready
@@ -266,6 +291,12 @@ class ReezynMenuApp(rumps.App):
     def _quit(self, _sender: Any = None) -> None:
         self.service.stop()
         rumps.quit_application()
+
+
+def _agent_label(agent: str) -> str:
+    if not agent:
+        return ""
+    return AGENT_LABELS.get(agent, agent.replace("_", " ").replace("-", " ").strip().title())
 
 
 def _shorten(text: str, width: int) -> str:

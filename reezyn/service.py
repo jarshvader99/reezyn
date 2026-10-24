@@ -41,6 +41,7 @@ class ServiceStatus:
     model_error: str
     version: int
     simulating: bool
+    active_agent: str
 
 
 class ReezynService:
@@ -59,6 +60,7 @@ class ReezynService:
         self._version = 0
         self._started = False
         self._simulating = False
+        self._active_agent = ""
 
         self.claude = ClaudeHookAdapter()
         self.gemini = GeminiHookAdapter()
@@ -123,6 +125,8 @@ class ReezynService:
         state = self.narrator.state()
         if not self.speaker.ready:
             state = "setup"
+        with self._lock:
+            active_agent = self._active_agent
         return ServiceStatus(
             state=state,
             paused=self.narrator.is_paused,
@@ -134,6 +138,7 @@ class ReezynService:
             model_error=self.speaker.load_error,
             version=self._version,
             simulating=self._simulating,
+            active_agent=active_agent,
         )
 
     def pause(self) -> None:
@@ -266,7 +271,7 @@ class ReezynService:
         ]
         try:
             for index, event in enumerate(events):
-                self.narrator.submit(event)
+                self._submit_event(event)
                 # A real tool call is fast; a new reasoning block usually takes longer.
                 time.sleep(pause_between if index % 3 else 1.0)
         finally:
@@ -282,9 +287,14 @@ class ReezynService:
         else:
             events = _generic_events(payload)
         for event in events:
-            self.narrator.submit(event)
+            self._submit_event(event)
 
     def _on_event(self, event: Event) -> None:
+        self._submit_event(event)
+
+    def _submit_event(self, event: Event) -> None:
+        with self._lock:
+            self._active_agent = event.agent
         self.narrator.submit(event)
 
     def _changed(self) -> None:
