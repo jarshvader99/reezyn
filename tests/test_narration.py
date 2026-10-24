@@ -102,6 +102,17 @@ def test_compose_appends_action_to_very_short_reasoning():
     assert narration.text == "Let me check. I'm reading session.ts."
 
 
+def test_compose_stays_with_the_latest_session():
+    now = time.time()
+    events = [
+        Event(agent="a", session_id="one", kind="reasoning", text="I'll inspect the old task.", ts=now),
+        Event(agent="a", session_id="two", kind="reasoning", text="I'll inspect the new task.", ts=now + 0.2),
+    ]
+    narration = compose_narration(events, NarrationConfig(connectors=False), now=now + 1)
+    assert narration is not None
+    assert narration.text == "I'll inspect the new task."
+
+
 def test_compose_falls_back_to_tool_actions():
     now = time.time()
     events = [

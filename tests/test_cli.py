@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import io
 import json
+from types import SimpleNamespace
 
 from reezyn.cli import main
-from reezyn.spool import Spool
+from reezyn.config import load_config
 
 
 def test_claude_hook_is_silent_and_spools(tmp_path, monkeypatch, capsys):
@@ -50,6 +51,19 @@ def test_generic_emit_creates_event(tmp_path, monkeypatch):
     data = json.loads(entries[0].read_text())
     assert data["payload"]["kind"] == "reasoning"
     assert data["payload"]["agent"] == "custom"
+
+
+def test_setup_persists_selected_model(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("REEZYN_HOME", str(tmp_path))
+
+    def fake_download(home, model, progress):
+        assert model == "fp16"
+        return SimpleNamespace(ready=True)
+
+    monkeypatch.setattr("reezyn.tts.download_models", fake_download)
+    assert main(["setup", "--model", "fp16"]) == 0
+    assert load_config(tmp_path).speech.model == "fp16"
+    assert "Voice model ready" in capsys.readouterr().out
 
 
 def test_ingest_reads_jsonl(tmp_path, monkeypatch, capsys):
