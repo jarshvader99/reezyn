@@ -1,0 +1,30 @@
+{
+  "sessionId": "gemini-session-1",
+  "messages": [
+    {
+      "type": "user",
+      "content": "Why does refresh accept an old token?"
+    },
+    {
+      "type": "gemini",
+      "content": [
+        {
+          "text": "I'll start by reading the session middleware.",
+          "thought": true
+        },
+        {
+          "text": "Let me inspect the token rotation."
+        }
+      ]
+    },
+    {
+      "type": "gemini",
+      "content": [
+        {
+          "text": "The refresh path rotates the cookie but never invalidates the previous version. I'll check the tests before editing.",
+          "thought": true
+        }
+      ]
+    }
+  ]
+}
