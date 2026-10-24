@@ -30,6 +30,11 @@ def test_config_round_trip(tmp_path, monkeypatch):
     assert loaded.speech.speed == 1.01
 
 
+def test_config_accepts_a_spanish_voice(tmp_path):
+    (tmp_path / "config.toml").write_text('[speech]\nvoice = "ef_dora"\n')
+    assert load_config(tmp_path).speech.voice == "ef_dora"
+
+
 def test_config_clamps_bad_values(tmp_path):
     (tmp_path / "config.toml").write_text(
         "[speech]\n"

@@ -22,6 +22,7 @@ from .config import (
 )
 from .events import Event
 from .installers import InstallResult, install_hooks, is_installed
+from .languages import pack_for_voice
 from .narration import Narrator
 from .runtime import clear_running, write_running
 from .spool import SpoolWatcher
@@ -70,6 +71,7 @@ class ReezynService:
             config=config.narration,
             stop_speech=self.speaker.stop,
             on_change=self._changed,
+            pack=pack_for_voice(config.speech.voice),
         )
 
         sources = {"generic"}
@@ -161,6 +163,7 @@ class ReezynService:
     def set_voice(self, voice: str) -> None:
         self.config = with_voice(self.config, voice)
         self.speaker.set_voice(voice)
+        self.narrator.set_pack(pack_for_voice(voice))
         self.config.save(self.home)
         self._changed()
 

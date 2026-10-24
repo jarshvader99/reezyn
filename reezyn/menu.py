@@ -11,7 +11,8 @@ from typing import Any
 import rumps
 
 from . import __version__
-from .config import CONFIG_ENV, SPEEDS, VOICES, Config, app_home, load_config
+from .config import CONFIG_ENV, SPEEDS, Config, app_home, load_config
+from .languages import LANGUAGES
 from .service import ReezynService
 
 AGENT_LABELS = {
@@ -55,10 +56,13 @@ class ReezynMenuApp(rumps.App):
 
         voice_menu = rumps.MenuItem("Voice")
         self.voice_items: dict[str, rumps.MenuItem] = {}
-        for voice_id, label in VOICES.items():
-            item = rumps.MenuItem(label, callback=self._make_voice_callback(voice_id))
-            self.voice_items[voice_id] = item
-            voice_menu.add(item)
+        for pack in LANGUAGES:
+            language_menu = rumps.MenuItem(pack.name)
+            for voice_id, label in pack.voices.items():
+                item = rumps.MenuItem(label, callback=self._make_voice_callback(voice_id))
+                self.voice_items[voice_id] = item
+                language_menu.add(item)
+            voice_menu.add(language_menu)
 
         pace_menu = rumps.MenuItem("Pace")
         self.pace_items: dict[str, rumps.MenuItem] = {}

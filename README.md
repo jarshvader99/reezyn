@@ -172,7 +172,9 @@ call instead.
 - **Pause narration** — stops the current audio and clears the queue.
 - **Skip this thought** — interrupts the current utterance.
 - **Recent thoughts** — the last six spoken lines.
-- **Voice** — Heart, Michael, Bella, George, or Emma.
+- **Voice** — English (Heart, Michael, Bella, George, Emma) or Spanish (Dora,
+  Alex, Santa). The selected voice also selects the language Reezyn speaks
+  around the agent's words.
 - **Pace** — Calm (0.84×), Natural (0.94×), Brisk (1.04×).
 - **Install agent hooks** — writes the Claude or Gemini integration after a
   confirmation dialog. Codex, Cursor, OpenCode, and Freebuff are watched
@@ -182,6 +184,25 @@ call instead.
 - **Open Reezyn folder** — `~/.reezyn`.
 
 `reezyn doctor` is the text version of the same state.
+
+## Languages
+
+Reezyn speaks around the agent's own words, and the selected voice decides the
+language of that framing. English voices use English connectors and tool
+phrases; Spanish voices use Spanish. The agent's reasoning itself is not
+translated: if the agent thinks in Spanish it is read as Spanish, and if it
+thinks in English a Spanish voice will read English text with Spanish
+pronunciation.
+
+Language behavior lives in `reezyn/languages.py`. Each `LanguagePack` supplies
+the Kokoro language, its voices, sentence and word rules, connectors, and tool
+phrases. Adding a language means adding one pack there; the menu, speaker, and
+narration queue resolve everything else from the selected voice. Kokoro ships
+voices for several more languages; English and Spanish have packs so far.
+
+```bash
+uv run reezyn --voice em_alex      # Alex, Spanish
+```
 
 ## Configuration
 
@@ -285,6 +306,7 @@ reezyn/
   cli.py         command surface
   menu.py        rumps menu-bar app
   narration.py   excerpting, tool descriptions, coalescing queue
+  languages.py   voice packs: language, voices, phrasing, text rules
   service.py     adapter → queue wiring
   tts.py         Kokoro setup, streaming playback, interruption
   spool.py       cross-process event handoff
@@ -301,6 +323,10 @@ reezyn/
   but may fall back to tool descriptions.
 - Cursor CLI's separate chat `store.db` is not read yet; only Cursor's agent
   JSONL transcript is watched.
+- Reezyn does not translate. A language pack only frames the agent's own
+  words, so English reasoning read by a Spanish voice is pronounced, not
+  translated; ask the agent to think in Spanish if that is what you want to
+  hear.
 - OpenCode is read from its SQLite schema, which can drift. Current v2 and the
   older message/part shape are supported; unknown block types are ignored.
 - Freebuff's `chat-messages.json` snapshot is a local UI cache and can change

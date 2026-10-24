@@ -19,6 +19,7 @@ from typing import Any
 import numpy as np
 
 from .config import SpeechConfig
+from .languages import pack_for_voice
 
 RELEASE = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1"
 TARGET_PEAK = 0.95
@@ -248,7 +249,7 @@ class KokoroSpeaker:
                     text,
                     self.config.voice,
                     speed=self.config.speed,
-                    lang="en-us",
+                    lang=pack_for_voice(self.config.voice).kokoro_lang,
                     sentence_pause=0.22,
                     clause_pause=0.08,
                 )

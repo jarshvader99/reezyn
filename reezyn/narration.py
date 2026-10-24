@@ -19,6 +19,7 @@ from typing import Any
 
 from .config import NarrationConfig
 from .events import Event
+from .languages import DEFAULT_PACK, LanguagePack
 
 log = logging.getLogger("reezyn")
 
@@ -31,13 +32,9 @@ REL_PATH = re.compile(r"\b[\w.-]+(?:/[\w.-]+){1,6}\b")
 SNAKE_CASE = re.compile(r"\b[a-zA-Z][a-zA-Z0-9]*(?:_[a-zA-Z0-9]+)+\b")
 CAMEL_CASE = re.compile(r"\b[a-z]+(?:[A-Z][a-z0-9]+){1,6}\b")
 WHITESPACE = re.compile(r"\s+")
-SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
-WORD = re.compile(r"[A-Za-z0-9']+")
 EMOJI = re.compile(
     "[\U0001F300-\U0001FAFF\U00002700-\U000027BF\U0001F1E6-\U0001F1FF]"
 )
-
-CONNECTORS = ("Okay,", "Right,", "So,", "Now,")
 
 TEST_COMMAND = re.compile(
     r"(?:^|[\s;&|])(?:uv run )?(?:pytest|py\.test|npm (?:run )?test|pnpm test|"
@@ -79,22 +76,22 @@ class Narration:
     events: list[Event] = field(default_factory=list)
 
 
-def clean_for_speech(text: str) -> str:
+def clean_for_speech(text: str, pack: LanguagePack = DEFAULT_PACK) -> str:
     """Make reasoning readable aloud without reading code or markup."""
 
     if not text:
         return ""
     value = FENCED_CODE.sub(" ", text)
     value = MARKDOWN_LINK.sub(r"\1", value)
-    value = URL.sub("a link", value)
-    value = INLINE_CODE.sub(lambda m: _code_to_words(m.group(1)), value)
-    value = ABS_PATH.sub(lambda m: _basename(m.group(0)), value)
-    value = REL_PATH.sub(lambda m: _basename(m.group(0)), value)
+    value = URL.sub(pack.link_word, value)
+    value = INLINE_CODE.sub(lambda m: _code_to_words(m.group(1), pack), value)
+    value = ABS_PATH.sub(lambda m: _basename(m.group(0), pack), value)
+    value = REL_PATH.sub(lambda m: _basename(m.group(0), pack), value)
     value = re.sub(r"<[^>]{1,80}>", " ", value)
-    value = value.replace("&", " and ")
-    value = value.replace("->", " to ").replace("=>", " so ")
-    value = value.replace("==", " equals ").replace("&&", " and ")
-    value = value.replace("%", " percent ")
+    value = value.replace("&", pack.and_word)
+    value = value.replace("->", pack.arrow_word).replace("=>", pack.so_word)
+    value = value.replace("==", pack.equals_word).replace("&&", pack.and_word)
+    value = value.replace("%", pack.percent_word)
     value = SNAKE_CASE.sub(_expand_identifier, value)
     value = CAMEL_CASE.sub(_expand_identifier, value)
     value = value.replace("`", "").replace("*", "").replace("#", "")
@@ -117,7 +114,7 @@ def clean_for_speech(text: str) -> str:
     value = re.sub(r"\.(?:\s*\.)+", ".", value)
     value = re.sub(r"\s+([,.;:!?])", r"\1", value)
     value = WHITESPACE.sub(" ", value).strip(" .;:-")
-    value = _remove_reasoning_labels(value)
+    value = _remove_reasoning_labels(value, pack)
     value = re.sub(
         r"\bThe user (?:wants|is asking|asked) me to\b",
         "I'll",
@@ -132,7 +129,10 @@ def clean_for_speech(text: str) -> str:
 
 
 def select_excerpt(
-    text: str, max_words: int = 42, max_sentences: int = 2
+    text: str,
+    max_words: int = 42,
+    max_sentences: int = 2,
+    pack: LanguagePack = DEFAULT_PACK,
 ) -> str:
     """Pick complete sentences, capped by words and sentence count.
 
@@ -140,21 +140,21 @@ def select_excerpt(
     caps the total length.
     """
 
-    cleaned = clean_for_speech(text)
+    cleaned = clean_for_speech(text, pack)
     if not cleaned:
         return ""
-    sentences = [s.strip() for s in SENTENCE_SPLIT.split(cleaned) if s.strip()]
+    sentences = [s.strip() for s in pack.sentence_split.split(cleaned) if s.strip()]
     if not sentences:
         sentences = [cleaned]
 
     chosen: list[str] = []
     total = 0
     for sentence in sentences:
-        count = _word_count(sentence)
+        count = _word_count(sentence, pack)
         if not chosen:
             if count > max_words:
                 sentence = _truncate_sentence(sentence, max_words)
-                count = _word_count(sentence)
+                count = _word_count(sentence, pack)
             chosen.append(sentence)
             total = count
             continue
@@ -171,13 +171,17 @@ def select_excerpt(
     return excerpt
 
 
-def describe_tool(name: str, tool_input: dict[str, Any] | None = None) -> str:
+def describe_tool(
+    name: str,
+    tool_input: dict[str, Any] | None = None,
+    pack: LanguagePack = DEFAULT_PACK,
+) -> str:
     """A short, non-technical description of an agent action."""
 
     tool_input = tool_input or {}
-    raw = (name or "tool").strip()
+    raw = (name or pack.phrase("tool_noun")).strip()
     key = raw.lower()
-    file_name = _tool_file(tool_input)
+    file_name = _tool_file(tool_input, pack=pack)
 
     if key in {
         "bash",
@@ -189,9 +193,9 @@ def describe_tool(name: str, tool_input: dict[str, Any] | None = None) -> str:
         "local_shell_call",
     }:
         command = str(tool_input.get("command") or tool_input.get("cmd") or "")
-        return command_intent(command)
+        return command_intent(command, pack)
     if key in {"read", "read_file", "read_files", "read_many_files", "view", "open_file"}:
-        return f"reading {file_name}" if file_name else "reading through the code"
+        return pack.phrase("reading_file", file=file_name) if file_name else pack.phrase("reading_code")
     if key in {
         "edit",
         "edit_file",
@@ -202,85 +206,86 @@ def describe_tool(name: str, tool_input: dict[str, Any] | None = None) -> str:
         "apply_patch",
         "patch",
     }:
-        return f"updating {file_name}" if file_name else "editing the files"
+        return pack.phrase("updating_file", file=file_name) if file_name else pack.phrase("editing_files")
     if key in {"write", "write_file"}:
-        return f"writing {file_name}" if file_name else "writing a file"
+        return pack.phrase("writing_file", file=file_name) if file_name else pack.phrase("writing_a_file")
     if key == "delete_file":
-        return f"deleting {file_name}" if file_name else "deleting a file"
+        return pack.phrase("deleting_file", file=file_name) if file_name else pack.phrase("deleting_a_file")
     if key in {"notebookedit", "edit_notebook"}:
-        return "updating the notebook"
+        return pack.phrase("notebook")
     if key in {"grep", "grep_search", "ripgrep", "codebase_search", "code_search"}:
         pattern = str(tool_input.get("pattern") or "").strip()
         if pattern and len(pattern) <= 40 and re.search(r"[A-Za-z0-9]", pattern):
-            return f'searching for "{_clean_quoted(pattern)}"'
-        return "searching the codebase"
+            return pack.phrase("searching_for", pattern=_clean_quoted(pattern))
+        return pack.phrase("searching_codebase")
     if key in {"glob", "glob_files", "list_files", "list_dir", "list_directory", "file_search"}:
-        return "finding the relevant files"
+        return pack.phrase("finding_files")
     if key in {"websearch", "google_web_search", "web_search", "semantic_search"}:
-        return "checking the docs"
+        return pack.phrase("checking_docs")
     if key in {"webfetch", "web_fetch", "fetch", "read_url"}:
-        return "reading the docs"
+        return pack.phrase("reading_docs")
     if key in {"task", "agent", "subagent"}:
-        return "handing that to a subagent"
+        return pack.phrase("subagent")
     if key in {"todowrite", "write_todos", "update_plan", "todo_write"}:
-        return "updating the plan"
+        return pack.phrase("plan")
     if key in {"view_image", "read_image"}:
-        return "looking at the screenshot"
+        return pack.phrase("screenshot")
     if key in {"skill", "load_skill"}:
-        return "loading a skill"
+        return pack.phrase("skill")
     if key in {"question", "ask_user"}:
-        return "asking a question"
+        return pack.phrase("question")
     if key in {"suggest_followups", "followup"}:
-        return "offering next steps"
+        return pack.phrase("followups")
     if key in {"lsp", "read_lints"}:
-        return "checking the language server"
+        return pack.phrase("lsp")
     if key in {"fetch_rules", "read_rules"}:
-        return "checking the project rules"
+        return pack.phrase("rules")
     if key == "update_memory":
-        return "updating its notes"
+        return pack.phrase("memory")
     if key.startswith("mcp__"):
         parts = raw.split("__")
-        server = parts[1] if len(parts) > 1 else "an MCP server"
-        return f"using {server.replace('_', ' ')}"
+        server = parts[1] if len(parts) > 1 else pack.phrase("mcp_server")
+        return pack.phrase("using_mcp", server=server.replace("_", " "))
     human = re.sub(r"[_\-]+", " ", raw).strip()
-    return f"using {human}" if human else "working"
+    return pack.phrase("using_tool", tool=human) if human else pack.phrase("working")
 
 
-def command_intent(command: str) -> str:
+def command_intent(command: str, pack: LanguagePack = DEFAULT_PACK) -> str:
     command = command.strip()
     if not command:
-        return "running a command"
+        return pack.phrase("running_command")
     if TEST_COMMAND.search(command):
-        return "running the tests"
+        return pack.phrase("running_tests")
     if LINT_COMMAND.search(command):
-        return "checking the code"
+        return pack.phrase("checking_code")
     if SEARCH_COMMAND.search(command):
-        return "searching the codebase"
+        return pack.phrase("searching_codebase")
     if re.search(r"\bgit (?:status|diff|show)\b", command):
-        return "checking what changed"
+        return pack.phrase("checking_changes")
     if re.search(r"\bgit log\b", command):
-        return "looking at the recent history"
+        return pack.phrase("recent_history")
     if INSTALL_COMMAND.search(command):
-        return "installing dependencies"
+        return pack.phrase("installing_dependencies")
     if READ_COMMAND.search(command):
-        return "reading through the code"
+        return pack.phrase("reading_code")
     if LIST_COMMAND.search(command):
-        return "looking around the project"
+        return pack.phrase("looking_around")
     if MUTATE_COMMAND.search(command):
-        return "organizing the files"
+        return pack.phrase("organizing_files")
     if NETWORK_COMMAND.search(command):
-        return "checking an endpoint"
+        return pack.phrase("checking_endpoint")
     if GIT_COMMAND.search(command):
-        return "working with git"
+        return pack.phrase("working_with_git")
     if RUN_COMMAND.search(command):
-        return "running the project"
-    return "running a command"
+        return pack.phrase("running_project")
+    return pack.phrase("running_command")
 
 
 def compose_narration(
     events: Iterable[Event],
     config: NarrationConfig,
     now: float | None = None,
+    pack: LanguagePack = DEFAULT_PACK,
 ) -> Narration | None:
     """Coalesce a burst of events into one calm spoken thought."""
 
@@ -315,7 +320,7 @@ def compose_narration(
 
     if reasoning:
         excerpt = select_excerpt(
-            reasoning.text, config.max_words, config.max_sentences
+            reasoning.text, config.max_words, config.max_sentences, pack
         )
         if not excerpt:
             reasoning = None
@@ -323,25 +328,25 @@ def compose_narration(
             if (
                 latest_tool
                 and now - latest_tool.ts <= 2.5
-                and _word_count(excerpt) < 9
+                and _word_count(excerpt, pack) < 9
             ):
-                action = describe_tool(latest_tool.tool_name, latest_tool.tool_input)
+                action = describe_tool(latest_tool.tool_name, latest_tool.tool_input, pack)
                 if action and action not in excerpt.lower():
                     terminal = "" if excerpt.endswith((".", "!", "?")) else "."
-                    excerpt = f"{excerpt}{terminal} I'm {action}."
+                    excerpt = f"{excerpt}{terminal}{pack.phrase('action_suffix', action=action)}"
             text = excerpt
             fingerprint = reasoning.fingerprint
             source_events = [reasoning]
             if latest_tool and latest_tool.ts >= reasoning.ts:
                 source_events.append(latest_tool)
-            return _finish(text, fingerprint, source_events, config)
+            return _finish(text, fingerprint, source_events, config, pack)
 
     if not tool_events:
         return None
 
     actions: list[str] = []
     for event in tool_events:
-        action = describe_tool(event.tool_name, event.tool_input)
+        action = describe_tool(event.tool_name, event.tool_input, pack)
         if action and action not in actions:
             actions.append(action)
     actions = actions[-2:]
@@ -349,31 +354,35 @@ def compose_narration(
         return None
 
     if len(actions) == 1:
-        text = f"I'm {actions[0]}."
+        text = pack.phrase("action_single", action=actions[0])
     else:
-        text = f"I'm {actions[0]}, then {actions[1]}."
+        text = pack.phrase("action_pair", first=actions[0], second=actions[1])
     fingerprint = latest_tool.fingerprint if latest_tool else "tools"
-    return _finish(text, fingerprint, tool_events[-2:], config)
+    return _finish(text, fingerprint, tool_events[-2:], config, pack)
 
 
 def _finish(
-    text: str, fingerprint: str, events: list[Event], config: NarrationConfig
+    text: str,
+    fingerprint: str,
+    events: list[Event],
+    config: NarrationConfig,
+    pack: LanguagePack,
 ) -> Narration:
     text = _ensure_terminal_punctuation(text)
     if config.connectors:
-        text = _add_connector(text, fingerprint)
+        text = _add_connector(text, fingerprint, pack)
     return Narration(text=text, fingerprint=fingerprint, events=events)
 
 
-def _add_connector(text: str, fingerprint: str) -> str:
+def _add_connector(text: str, fingerprint: str, pack: LanguagePack) -> str:
     if not text:
         return text
-    if text.lower().startswith(("okay", "right", "so ", "now ", "well", "hmm")):
+    if text.lower().startswith(pack.connector_starts):
         return text
     score = int(hashlib.sha1(fingerprint.encode()).hexdigest()[:8], 16)
     if score % 4 != 0:
         return text
-    connector = CONNECTORS[score % len(CONNECTORS)]
+    connector = pack.connectors[score % len(pack.connectors)]
     return f"{connector} {text}"
 
 
@@ -400,27 +409,27 @@ def _ensure_terminal_punctuation(text: str) -> str:
     return text
 
 
-def _word_count(text: str) -> int:
-    return len(WORD.findall(text))
+def _word_count(text: str, pack: LanguagePack = DEFAULT_PACK) -> int:
+    return len(pack.word.findall(text))
 
 
-def _basename(path: str) -> str:
+def _basename(path: str, pack: LanguagePack = DEFAULT_PACK) -> str:
     value = path.strip().strip("\"'").rstrip(".,;:)")
     name = Path(value).name
-    return name or "the file"
+    return name or pack.file_word
 
 
-def _code_to_words(code: str) -> str:
+def _code_to_words(code: str, pack: LanguagePack = DEFAULT_PACK) -> str:
     value = code.strip()
     if not value:
         return " "
     if re.fullmatch(r"[\w./@+-]+", value):
         if "/" in value or "." in value:
-            return _basename(value)
+            return _basename(value, pack)
         return SNAKE_CASE.sub(_expand_identifier, CAMEL_CASE.sub(_expand_identifier, value))
     if re.search(r"\s", value):
-        return "the command"
-    return "that"
+        return pack.command_word
+    return pack.that_word
 
 
 def _expand_identifier(match: re.Match[str]) -> str:
@@ -431,14 +440,8 @@ def _expand_identifier(match: re.Match[str]) -> str:
     return value.lower()
 
 
-def _remove_reasoning_labels(text: str) -> str:
-    text = re.sub(
-        r"^(?:thinking|reasoning|analysis|thought)\s*[:\-]\s*",
-        "",
-        text,
-        flags=re.IGNORECASE,
-    )
-    return text
+def _remove_reasoning_labels(text: str, pack: LanguagePack = DEFAULT_PACK) -> str:
+    return pack.reasoning_labels.sub("", text, count=1)
 
 
 def _clean_quoted(value: str) -> str:
@@ -446,7 +449,11 @@ def _clean_quoted(value: str) -> str:
     return WHITESPACE.sub(" ", value).strip()[:36]
 
 
-def _tool_file(tool_input: dict[str, Any], depth: int = 0) -> str:
+def _tool_file(
+    tool_input: dict[str, Any],
+    depth: int = 0,
+    pack: LanguagePack = DEFAULT_PACK,
+) -> str:
     if depth > 3 or not isinstance(tool_input, dict):
         return ""
     for key in (
@@ -465,16 +472,16 @@ def _tool_file(tool_input: dict[str, Any], depth: int = 0) -> str:
     ):
         value = tool_input.get(key)
         if isinstance(value, str) and value.strip():
-            return _basename(value)
+            return _basename(value, pack)
 
     # Tool inputs vary: patches can be strings, and some agents nest the
     # interesting fields under input/args/state/metadata.
     for key in ("input", "args", "arguments", "state", "metadata", "patch", "diff"):
         value = tool_input.get(key)
         if isinstance(value, dict):
-            name = _tool_file(value, depth + 1)
+            name = _tool_file(value, depth + 1, pack)
         elif isinstance(value, str):
-            name = _patch_file(value)
+            name = _patch_file(value, pack)
         else:
             name = ""
         if name:
@@ -484,24 +491,24 @@ def _tool_file(tool_input: dict[str, Any], depth: int = 0) -> str:
     if isinstance(files, list):
         for item in files:
             if isinstance(item, dict):
-                name = _tool_file(item, depth + 1)
+                name = _tool_file(item, depth + 1, pack)
                 if name:
                     return name
 
     for key in ("content", "new_string", "newString"):
         value = tool_input.get(key)
         if isinstance(value, str):
-            name = _patch_file(value)
+            name = _patch_file(value, pack)
             if name:
                 return name
     return ""
 
 
-def _patch_file(text: str) -> str:
+def _patch_file(text: str, pack: LanguagePack = DEFAULT_PACK) -> str:
     for pattern in (PATCH_TARGET, PATCH_PLUS):
         match = pattern.search(text)
         if match:
-            return _basename(match.group(1))
+            return _basename(match.group(1), pack)
     return ""
 
 
@@ -515,10 +522,12 @@ class Narrator:
         stop_speech: Callable[[], None] | None = None,
         on_change: Callable[[], None] | None = None,
         on_spoken: Callable[[str], None] | None = None,
+        pack: LanguagePack = DEFAULT_PACK,
     ) -> None:
         self._speak = speak
         self._stop_speech = stop_speech or (lambda: None)
         self._config = config
+        self._pack = pack
         self._on_change = on_change
         self._on_spoken = on_spoken
         self._lock = threading.RLock()
@@ -550,6 +559,10 @@ class Narrator:
         self._stop_speech()
         if self._thread:
             self._thread.join(timeout=3)
+
+    def set_pack(self, pack: LanguagePack) -> None:
+        with self._lock:
+            self._pack = pack
 
     def submit(self, event: Event) -> None:
         now = time.monotonic()
@@ -648,7 +661,7 @@ class Narrator:
                 self._wake.clear()
                 continue
 
-            narration = compose_narration(events, self._config)
+            narration = compose_narration(events, self._config, pack=self._pack)
             if not narration:
                 with self._lock:
                     self._speaking = False

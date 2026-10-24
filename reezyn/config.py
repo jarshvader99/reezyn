@@ -8,17 +8,10 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
+from .languages import DEFAULT_VOICE, VOICES
+
 APP_NAME = "reezyn"
 CONFIG_ENV = "REEZYN_HOME"
-
-VOICES: dict[str, str] = {
-    "af_heart": "Heart",
-    "am_michael": "Michael",
-    "af_bella": "Bella",
-    "bm_george": "George",
-    "bf_emma": "Emma",
-}
-DEFAULT_VOICE = "af_heart"
 
 SPEEDS: dict[str, float] = {
     "Calm": 0.84,

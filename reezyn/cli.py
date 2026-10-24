@@ -277,10 +277,12 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     from .adapters.freebuff import freebuff_projects
     from .adapters.opencode import accessible as opencode_accessible
     from .adapters.opencode import opencode_db_path
+    from .languages import pack_for_voice
     from .tts import model_paths
 
     home = app_home()
     config = load_config(home)
+    language = pack_for_voice(config.speech.voice)
     paths = model_paths(home, config.speech.model)
     audio = _audio_status()
     codex_root = codex_home() / "sessions"
@@ -300,6 +302,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         "home": str(home),
         "config": str(home / "config.toml"),
         "voice": config.speech.voice,
+        "language": language.code,
         "speed": config.speech.speed,
         "model": config.speech.model,
         "model_ready": paths.ready,
@@ -345,7 +348,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     print(f"  Python       {report['python']}")
     print(f"  State        {home}")
     print(f"  Config       {home / 'config.toml'}")
-    print(f"  Voice        {config.speech.voice} at {config.speech.speed:.2f}×")
+    print(f"  Voice        {config.speech.voice} ({language.name}) at {config.speech.speed:.2f}×")
     print(f"  Model        {'ready' if paths.ready else 'missing'} ({paths.model.name})")
     print(f"  Audio        {audio}")
     print(f"  Claude hook  {'installed' if report['claude_hook']['installed'] else 'not installed'}  ({settings_path('claude')})")
