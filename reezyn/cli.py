@@ -274,6 +274,7 @@ def cmd_install(args: argparse.Namespace) -> int:
 def cmd_doctor(args: argparse.Namespace) -> int:
     from .adapters.codex import codex_home
     from .adapters.cursor import cursor_projects
+    from .adapters.freebuff import freebuff_projects
     from .adapters.opencode import accessible as opencode_accessible
     from .adapters.opencode import opencode_db_path
     from .tts import model_paths
@@ -286,6 +287,8 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     codex_count = _count_codex_sessions(codex_root)
     cursor_root = cursor_projects()
     cursor_count = _count_cursor_transcripts(cursor_root)
+    freebuff_root = freebuff_projects()
+    freebuff_count = _count_freebuff_chats(freebuff_root)
     opencode_db = opencode_db_path()
     spool_count = len(list((home / "events").glob("*.json"))) if (home / "events").exists() else 0
     running = is_running(home)
@@ -326,6 +329,11 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             "present": opencode_accessible(opencode_db),
             "watching": config.agents.opencode,
         },
+        "freebuff": {
+            "projects": str(freebuff_root),
+            "chats": freebuff_count,
+            "watching": config.agents.freebuff,
+        },
         "pending_events": spool_count,
     }
 
@@ -344,6 +352,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     print(f"  Gemini hook  {'installed' if report['gemini_hook']['installed'] else 'not installed'}  ({settings_path('gemini')})")
     print(f"  Codex        {codex_count} rollout file(s) under {codex_root}")
     print(f"  Cursor       {cursor_count} transcript file(s) under {cursor_root}")
+    print(f"  Freebuff     {freebuff_count} chat snapshot(s) under {freebuff_root}")
     print(
         "  OpenCode     "
         + ("database found" if report["opencode"]["present"] else "database not found")
@@ -497,6 +506,21 @@ def _count_cursor_transcripts(root: Path) -> int:
             count += 1
             if count >= 999:
                 break
+    except OSError:
+        pass
+    return count
+
+
+def _count_freebuff_chats(root: Path) -> int:
+    if not root.exists():
+        return 0
+    count = 0
+    try:
+        for path in root.glob("*/chats/*/chat-messages.json"):
+            if path.is_file():
+                count += 1
+                if count >= 999:
+                    break
     except OSError:
         pass
     return count

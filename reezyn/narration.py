@@ -190,7 +190,7 @@ def describe_tool(name: str, tool_input: dict[str, Any] | None = None) -> str:
     }:
         command = str(tool_input.get("command") or tool_input.get("cmd") or "")
         return command_intent(command)
-    if key in {"read", "read_file", "view", "open_file"}:
+    if key in {"read", "read_file", "read_files", "read_many_files", "view", "open_file"}:
         return f"reading {file_name}" if file_name else "reading through the code"
     if key in {
         "edit",
@@ -198,6 +198,7 @@ def describe_tool(name: str, tool_input: dict[str, Any] | None = None) -> str:
         "multiedit",
         "replace",
         "search_replace",
+        "str_replace",
         "apply_patch",
         "patch",
     }:
@@ -208,20 +209,20 @@ def describe_tool(name: str, tool_input: dict[str, Any] | None = None) -> str:
         return f"deleting {file_name}" if file_name else "deleting a file"
     if key in {"notebookedit", "edit_notebook"}:
         return "updating the notebook"
-    if key in {"grep", "grep_search", "ripgrep", "codebase_search"}:
+    if key in {"grep", "grep_search", "ripgrep", "codebase_search", "code_search"}:
         pattern = str(tool_input.get("pattern") or "").strip()
         if pattern and len(pattern) <= 40 and re.search(r"[A-Za-z0-9]", pattern):
             return f'searching for "{_clean_quoted(pattern)}"'
         return "searching the codebase"
-    if key in {"glob", "list_files", "list_dir", "file_search"}:
+    if key in {"glob", "glob_files", "list_files", "list_dir", "list_directory", "file_search"}:
         return "finding the relevant files"
     if key in {"websearch", "google_web_search", "web_search", "semantic_search"}:
         return "checking the docs"
-    if key in {"webfetch", "web_fetch", "fetch"}:
+    if key in {"webfetch", "web_fetch", "fetch", "read_url"}:
         return "reading the docs"
     if key in {"task", "agent", "subagent"}:
         return "handing that to a subagent"
-    if key in {"todowrite", "update_plan", "todo_write"}:
+    if key in {"todowrite", "write_todos", "update_plan", "todo_write"}:
         return "updating the plan"
     if key in {"view_image", "read_image"}:
         return "looking at the screenshot"
@@ -229,6 +230,8 @@ def describe_tool(name: str, tool_input: dict[str, Any] | None = None) -> str:
         return "loading a skill"
     if key in {"question", "ask_user"}:
         return "asking a question"
+    if key in {"suggest_followups", "followup"}:
+        return "offering next steps"
     if key in {"lsp", "read_lints"}:
         return "checking the language server"
     if key in {"fetch_rules", "read_rules"}:

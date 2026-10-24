@@ -66,6 +66,7 @@ class AgentsConfig:
     gemini: bool = True
     cursor: bool = True
     opencode: bool = True
+    freebuff: bool = True
 
 
 @dataclass(slots=True)
@@ -107,6 +108,7 @@ class Config:
             f"gemini = {str(a.gemini).lower()}\n"
             f"cursor = {str(a.cursor).lower()}\n"
             f"opencode = {str(a.opencode).lower()}\n"
+            f"freebuff = {str(a.freebuff).lower()}\n"
         )
 
 
@@ -156,6 +158,7 @@ def load_config(home: Path | None = None) -> Config:
             gemini=_bool(agents.get("gemini"), True),
             cursor=_bool(agents.get("cursor"), True),
             opencode=_bool(agents.get("opencode"), True),
+            freebuff=_bool(agents.get("freebuff"), True),
         ),
     )
     return config

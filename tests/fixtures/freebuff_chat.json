@@ -1,0 +1,49 @@
+[
+  {
+    "id": "user-1",
+    "variant": "user",
+    "content": "i want it to also work with freebuff here",
+    "timestamp": "09:52 PM"
+  },
+  {
+    "id": "ai-1",
+    "variant": "ai",
+    "content": "",
+    "timestamp": "09:52 PM",
+    "isComplete": true,
+    "blocks": [
+      {
+        "type": "text",
+        "textType": "reasoning",
+        "thinkingId": "thought-1",
+        "content": "The user wants Reezyn to narrate Freebuff too. I need to find where Freebuff keeps its chat snapshots."
+      },
+      {
+        "type": "tool",
+        "toolCallId": "call-1",
+        "toolName": "list_directory",
+        "input": {"path": "~/.config/manicode"}
+      },
+      {
+        "type": "text",
+        "textType": "reasoning",
+        "thinkingId": "thought-2",
+        "content": "Each chat is saved as chat-messages.json with reasoning blocks and tool calls, so I can watch those files."
+      },
+      {
+        "type": "tool",
+        "toolCallId": "call-2",
+        "toolName": "str_replace",
+        "input": {
+          "path": "reezyn/config.py",
+          "replacements": [{"oldString": "opencode: bool = True", "newString": "opencode: bool = True\n    freebuff: bool = True"}]
+        }
+      },
+      {
+        "type": "text",
+        "textType": "text",
+        "content": "Done. Freebuff support is wired in."
+      }
+    ]
+  }
+]

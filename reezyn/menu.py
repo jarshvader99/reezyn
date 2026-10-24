@@ -20,6 +20,7 @@ AGENT_LABELS = {
     "gemini": "Gemini CLI",
     "cursor": "Cursor",
     "opencode": "OpenCode",
+    "freebuff": "Freebuff",
     "simulation": "Simulation",
     "generic": "Custom",
 }
@@ -71,7 +72,7 @@ class ReezynMenuApp(rumps.App):
         hooks_menu.add(rumps.MenuItem("Gemini CLI…", callback=self._install_gemini))
         hooks_menu.add(rumps.separator)
         watched_menu = rumps.MenuItem("Watched automatically")
-        for label in ("Codex CLI", "Cursor", "OpenCode"):
+        for label in ("Codex CLI", "Cursor", "OpenCode", "Freebuff"):
             item = rumps.MenuItem(label)
             item.set_callback(None)
             watched_menu.add(item)

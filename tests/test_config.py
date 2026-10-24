@@ -19,6 +19,7 @@ def test_config_round_trip(tmp_path, monkeypatch):
     assert config.narration.max_sentences == 2
     assert config.agents.cursor is True
     assert config.agents.opencode is True
+    assert config.agents.freebuff is True
 
     config = with_voice(config, "am_michael")
     config = with_speed(config, 1.01)
@@ -54,6 +55,8 @@ def test_config_clamps_bad_values(tmp_path):
     assert config.agents.codex is False
     assert config.agents.cursor is True
     assert config.agents.opencode is True
+    assert config.agents.freebuff is True
+    assert config.agents.freebuff is True
 
 
 def test_invalid_toml_falls_back_to_defaults(tmp_path):

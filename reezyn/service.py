@@ -12,6 +12,7 @@ from typing import Any
 from .adapters.claude import ClaudeHookAdapter
 from .adapters.codex import CodexWatcher
 from .adapters.cursor import CursorWatcher
+from .adapters.freebuff import FreebuffWatcher
 from .adapters.gemini import GeminiHookAdapter
 from .adapters.opencode import OpenCodeWatcher
 from .config import (
@@ -80,6 +81,7 @@ class ReezynService:
         self.codex = CodexWatcher(self._on_event) if config.agents.codex else None
         self.cursor = CursorWatcher(self._on_event) if config.agents.cursor else None
         self.opencode = OpenCodeWatcher(self._on_event) if config.agents.opencode else None
+        self.freebuff = FreebuffWatcher(self._on_event) if config.agents.freebuff else None
         self._preload_thread: threading.Thread | None = None
         self._download: dict[str, Any] | None = None
 
@@ -95,6 +97,7 @@ class ReezynService:
             ("Codex", self.codex),
             ("Cursor", self.cursor),
             ("OpenCode", self.opencode),
+            ("Freebuff", self.freebuff),
         ):
             if watcher:
                 try:
@@ -113,7 +116,7 @@ class ReezynService:
             if not self._started:
                 return
             self._started = False
-        for watcher in (self.codex, self.cursor, self.opencode):
+        for watcher in (self.codex, self.cursor, self.opencode, self.freebuff):
             if watcher:
                 watcher.stop()
         self.spool.stop()

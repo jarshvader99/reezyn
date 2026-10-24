@@ -2,8 +2,8 @@
 
 Reezyn is a calm, local narrator for the reasoning behind coding-agent tool
 calls. It lives in the macOS menu bar, listens to Claude Code, Codex CLI, Gemini
-CLI, Cursor, OpenCode, and generic event streams, and speaks short excerpts of
-the agent's own thoughts in an open-source Kokoro voice.
+CLI, Cursor, OpenCode, Freebuff, and generic event streams, and speaks short
+excerpts of the agent's own thoughts in an open-source Kokoro voice.
 
 It does not summarize with an LLM, call a cloud API, or send transcripts
 anywhere. Reezyn reads the agent's local session log, picks a short reasoning
@@ -116,6 +116,22 @@ database.
 Start Reezyn before or during the OpenCode session. Existing history is not
 replayed beyond the short recent window.
 
+### Freebuff
+
+No install step. Reezyn watches Freebuff chat snapshots under
+`~/.config/manicode/projects/<project>/chats/<chat>/chat-messages.json` (or
+`$FREEBUFF_PROJECTS_DIR`). Assistant messages carry ordered `reasoning` text,
+commentary, and tool blocks. Reezyn reads the reasoning and tool calls and
+skips the final answer, as it does for Cursor.
+
+Freebuff rewrites the snapshot as a turn advances rather than appending to it,
+so Reezyn re-reads a chat only when its size or mtime changes and speaks each
+block once. A trailing thought is held for one poll, so a sentence that is
+still streaming is spoken complete instead of being cut off.
+
+Start Reezyn before or during the Freebuff session. Chats that already exist
+when Reezyn starts are not replayed.
+
 ### Anything else
 
 Two generic paths are available:
@@ -159,7 +175,8 @@ call instead.
 - **Voice** — Heart, Michael, Bella, George, or Emma.
 - **Pace** — Calm (0.84×), Natural (0.94×), Brisk (1.04×).
 - **Install agent hooks** — writes the Claude or Gemini integration after a
-  confirmation dialog. Codex, Cursor, and OpenCode are watched automatically.
+  confirmation dialog. Codex, Cursor, OpenCode, and Freebuff are watched
+  automatically.
 - **Download voice model** — appears while the model is missing.
 - **Simulate a session** — a local demo through the real pipeline.
 - **Open Reezyn folder** — `~/.reezyn`.
@@ -192,6 +209,7 @@ codex = true
 gemini = true
 cursor = true
 opencode = true
+freebuff = true
 ```
 
 The menu writes voice and pace changes back here. Other edits take effect when
@@ -254,7 +272,7 @@ uv run python -m compileall -q reezyn
 ```
 
 The test suite covers speech cleanup and excerpting, burst coalescing and
-deduplication, all five agent formats, hook installers, the cross-process
+deduplication, all six agent formats, hook installers, the cross-process
 spool, and an end-to-end Claude hook → fake speaker run. The real Kokoro engine
 and menu bar are exercised separately with `uv run reezyn` and
 `uv run reezyn simulate`.
@@ -263,7 +281,7 @@ Layout:
 
 ```
 reezyn/
-  adapters/      Claude, Codex, Gemini, Cursor, and OpenCode event sources
+  adapters/      Claude, Codex, Gemini, Cursor, OpenCode, and Freebuff sources
   cli.py         command surface
   menu.py        rumps menu-bar app
   narration.py   excerpting, tool descriptions, coalescing queue
@@ -285,5 +303,8 @@ reezyn/
   JSONL transcript is watched.
 - OpenCode is read from its SQLite schema, which can drift. Current v2 and the
   older message/part shape are supported; unknown block types are ignored.
+- Freebuff's `chat-messages.json` snapshot is a local UI cache and can change
+  shape between releases. Reezyn ignores unknown block types, and a chat that
+  has already been compacted exposes only the messages Freebuff kept.
 - Reezyn expects the menu app to be running. Hooks are fast and fail silently;
   check `~/.reezyn/hook-errors.log` if events are not arriving.
