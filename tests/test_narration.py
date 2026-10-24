@@ -52,6 +52,10 @@ def test_describe_tool_maps_common_actions():
     assert describe_tool("Grep", {"pattern": "refreshToken"}) == 'searching for "refreshToken"'
     assert describe_tool("Edit", {"file_path": "src/auth.ts"}) == "updating auth.ts"
     assert describe_tool("WebSearch", {}) == "checking the docs"
+    assert describe_tool("run_terminal_cmd", {"command": "pytest"}) == "running the tests"
+    assert describe_tool("search_replace", {"file_path": "src/auth.ts"}) == "updating auth.ts"
+    assert describe_tool("list_dir", {}) == "finding the relevant files"
+    assert describe_tool("fetch_rules", {}) == "checking the project rules"
 
 
 def test_compose_prefers_reasoning_and_respects_staleness():

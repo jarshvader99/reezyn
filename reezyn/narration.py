@@ -172,6 +172,7 @@ def describe_tool(name: str, tool_input: dict[str, Any] | None = None) -> str:
         "exec_command",
         "run_shell_command",
         "run_terminal_command",
+        "run_terminal_cmd",
         "local_shell_call",
     }:
         command = str(tool_input.get("command") or tool_input.get("cmd") or "")
@@ -185,18 +186,19 @@ def describe_tool(name: str, tool_input: dict[str, Any] | None = None) -> str:
         "write_file",
         "multiedit",
         "replace",
+        "search_replace",
         "apply_patch",
         "delete_file",
     }:
         return f"updating {file_name}" if file_name else "editing the files"
     if key in {"notebookedit", "edit_notebook"}:
         return "updating the notebook"
-    if key in {"grep", "grep_search", "ripgrep"}:
+    if key in {"grep", "grep_search", "ripgrep", "codebase_search"}:
         pattern = str(tool_input.get("pattern") or "").strip()
         if pattern and len(pattern) <= 40 and re.search(r"[A-Za-z0-9]", pattern):
             return f'searching for "{_clean_quoted(pattern)}"'
         return "searching the codebase"
-    if key in {"glob", "list_files", "file_search"}:
+    if key in {"glob", "list_files", "list_dir", "file_search"}:
         return "finding the relevant files"
     if key in {"websearch", "google_web_search", "web_search", "semantic_search"}:
         return "checking the docs"
@@ -214,6 +216,10 @@ def describe_tool(name: str, tool_input: dict[str, Any] | None = None) -> str:
         return "asking a question"
     if key in {"lsp", "read_lints"}:
         return "checking the language server"
+    if key in {"fetch_rules", "read_rules"}:
+        return "checking the project rules"
+    if key == "update_memory":
+        return "updating its notes"
     if key.startswith("mcp__"):
         parts = raw.split("__")
         server = parts[1] if len(parts) > 1 else "an MCP server"

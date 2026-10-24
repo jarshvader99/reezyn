@@ -96,6 +96,7 @@ class OpenCodeWatcher:
                     if rows:
                         for row in rows:
                             self._emit_current(row)
+                        self._prune_seen()
                         return
                 if "part" in tables and "message" in tables:
                     for row in _legacy_rows(connection, cutoff):
