@@ -580,6 +580,7 @@ class Narrator:
                 self._speaking = False
                 self._current = ""
                 self._last_finish = time.monotonic()
+                self._cancel_current = False
                 if ok:
                     self._recent.appendleft(narration.text)
                     self._last_error = ""
