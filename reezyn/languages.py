@@ -86,6 +86,15 @@ ENGLISH_PHRASES = {
     "action_single": "I'm {action}.",
     "action_pair": "I'm {first}, then {second}.",
     "action_suffix": " I'm {action}.",
+    "ago_session": "Earlier in this session",
+    "ago_today": "Earlier today",
+    "ago_past": "On a previous day",
+    "recall_thought": "{when}, the agent concluded: {gist}.",
+    "recall_action": "{when}, the agent was {action}.",
+    "recap_asked": "You asked: {text}.",
+    "recap_decided": "It concluded: {text}.",
+    "recap_last": "Last action: {action}.",
+    "recap_empty": "Nothing to recap in this project yet.",
 }
 
 SPANISH_PHRASES = {
@@ -131,6 +140,15 @@ SPANISH_PHRASES = {
     "action_single": "Estoy {action}.",
     "action_pair": "Estoy {first}, y luego {second}.",
     "action_suffix": " Estoy {action}.",
+    "ago_session": "Antes en esta sesión",
+    "ago_today": "Hoy más temprano",
+    "ago_past": "En un día anterior",
+    "recall_thought": "{when}, el agente concluyó: {gist}.",
+    "recall_action": "{when}, el agente estaba {action}.",
+    "recap_asked": "Pediste: {text}.",
+    "recap_decided": "Concluyó: {text}.",
+    "recap_last": "Última acción: {action}.",
+    "recap_empty": "Todavía no hay nada que resumir en este proyecto.",
 }
 
 FRENCH_PHRASES = {
@@ -176,6 +194,15 @@ FRENCH_PHRASES = {
     "action_single": "Je vais {action}.",
     "action_pair": "Je vais {first}, puis {second}.",
     "action_suffix": " Je vais {action}.",
+    "ago_session": "Plus tôt dans cette session",
+    "ago_today": "Plus tôt aujourd'hui",
+    "ago_past": "Un jour précédent",
+    "recall_thought": "{when}, l'agent a conclu : {gist}.",
+    "recall_action": "{when}, l'agent était en train de {action}.",
+    "recap_asked": "Vous avez demandé : {text}.",
+    "recap_decided": "Il a conclu : {text}.",
+    "recap_last": "Dernière action : {action}.",
+    "recap_empty": "Rien à résumer dans ce projet pour l'instant.",
 }
 
 ENGLISH = LanguagePack(

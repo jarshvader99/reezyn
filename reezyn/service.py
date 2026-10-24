@@ -24,7 +24,9 @@ from .config import (
 from .events import Event
 from .installers import InstallResult, install_hooks, is_installed
 from .languages import pack_for_voice
+from .ledger import LedgerStore
 from .narration import Narrator
+from .recall import Recaller
 from .runtime import clear_running, write_running
 from .spool import SpoolWatcher
 from .tts import KokoroSpeaker, download_models
@@ -79,6 +81,12 @@ class ReezynService:
             pack=pack_for_voice(config.speech.voice),
             banter=config.banter,
         )
+        self.recaller = Recaller(
+            LedgerStore(home),
+            config.recall,
+            pack=pack_for_voice(config.speech.voice),
+        )
+        self._last_project = ""
 
         sources = {"generic"}
         if config.agents.claude:
@@ -175,6 +183,7 @@ class ReezynService:
         self.config = with_voice(self.config, voice)
         self.speaker.set_voice(voice)
         self.narrator.set_pack(pack_for_voice(voice))
+        self.recaller.set_pack(pack_for_voice(voice))
         self.config.save(self.home)
         self._changed()
 
@@ -204,6 +213,27 @@ class ReezynService:
             self.narrator.reset_banter()
         self.config.save(self.home)
         self._changed()
+
+    def set_recall(self, enabled: bool) -> None:
+        self.config.recall.enabled = enabled
+        self.recaller.set_config(self.config.recall)
+        self.config.save(self.home)
+        self._changed()
+
+    def recap(self, minutes: float | None = None) -> str:
+        """Speak where the last stretch of work landed, and return the line."""
+
+        with self._lock:
+            project = self._last_project
+        window = minutes * 60.0 if minutes else None
+        try:
+            text = self.recaller.recap(project, window_s=window)
+        except Exception:
+            log.debug("recap failed", exc_info=True)
+            return ""
+        if text:
+            self.narrator.announce(text)
+        return text
 
     def set_speed(self, speed: float) -> None:
         self.config = with_speed(self.config, speed)
@@ -342,6 +372,20 @@ class ReezynService:
     def _submit_event(self, event: Event) -> None:
         with self._lock:
             self._active_agent = event.agent
+            if event.project:
+                self._last_project = event.project
+        try:
+            self.recaller.record(event)
+        except Exception:
+            log.debug("could not record event", exc_info=True)
+        if event.kind == "prompt":
+            try:
+                line = self.recaller.recall_for(event)
+            except Exception:
+                log.debug("recall failed", exc_info=True)
+                line = ""
+            if line:
+                self.narrator.announce(line)
         self.narrator.submit(event)
 
     def _changed(self) -> None:
@@ -357,6 +401,6 @@ class ReezynService:
 def _generic_events(payload: dict[str, Any]) -> list[Event]:
     if isinstance(payload.get("events"), list):
         return [Event.from_dict(item) for item in payload["events"] if isinstance(item, dict)]
-    if payload.get("kind") in ("reasoning", "tool") or payload.get("text") or payload.get("tool_name"):
+    if payload.get("kind") in ("reasoning", "tool", "prompt") or payload.get("text") or payload.get("tool_name"):
         return [Event.from_dict(payload)]
     return []

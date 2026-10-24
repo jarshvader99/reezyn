@@ -42,7 +42,17 @@ def test_existing_bundled_hook_is_recognized(tmp_path, monkeypatch):
                                 }
                             ],
                         }
-                    ]
+                    ],
+                    "UserPromptSubmit": [
+                        {
+                            "hooks": [
+                                {
+                                    "type": "command",
+                                    "command": "/Applications/Reezyn.app/Contents/MacOS/Reezyn hook claude",
+                                }
+                            ],
+                        }
+                    ],
                 }
             }
         )
@@ -53,6 +63,52 @@ def test_existing_bundled_hook_is_recognized(tmp_path, monkeypatch):
     install_hooks("claude", system_home=tmp_path)
     settings = json.loads(path.read_text())
     assert len(settings["hooks"]["PreToolUse"]) == 1
+    assert len(settings["hooks"]["UserPromptSubmit"]) == 1
+
+
+def test_claude_install_adds_a_prompt_hook(tmp_path, monkeypatch):
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    install_hooks("claude", system_home=tmp_path)
+    settings = json.loads(settings_path("claude", tmp_path).read_text())
+    groups = settings["hooks"]["UserPromptSubmit"]
+    assert len(groups) == 1
+    hook = groups[0]["hooks"][0]
+    assert hook["command"].endswith("hook claude")
+    assert hook["async"] is True
+
+    uninstall_hooks("claude", system_home=tmp_path)
+    assert "hooks" not in json.loads(settings_path("claude", tmp_path).read_text())
+    assert not is_installed("claude", system_home=tmp_path)
+
+
+def test_tool_only_install_is_reported_for_upgrade(tmp_path, monkeypatch):
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    path = settings_path("claude", tmp_path)
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        json.dumps(
+            {
+                "hooks": {
+                    "PreToolUse": [
+                        {
+                            "matcher": "*",
+                            "hooks": [
+                                {
+                                    "type": "command",
+                                    "command": f"{shlex.quote(sys.executable)} -m reezyn hook claude",
+                                }
+                            ],
+                        }
+                    ]
+                }
+            }
+        )
+    )
+    # Without the prompt hook Reezyn cannot recall what was asked, so an
+    # older install is reported as incomplete and can be upgraded in place.
+    assert not is_installed("claude", system_home=tmp_path)
+    install_hooks("claude", system_home=tmp_path)
+    assert is_installed("claude", system_home=tmp_path)
 
 
 def test_claude_install_preserves_existing_settings(tmp_path, monkeypatch):

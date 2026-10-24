@@ -10,6 +10,7 @@ from reezyn.config import (
     BanterConfig,
     Config,
     NarrationConfig,
+    RecallConfig,
     SpeechConfig,
     load_config,
 )
@@ -97,6 +98,60 @@ def test_service_spools_a_claude_hook_into_speech(tmp_path, monkeypatch):
     finally:
         service.stop()
     assert not is_running(home)
+
+
+def test_a_prompt_spools_into_a_recall_line(tmp_path):
+    home = tmp_path / "state"
+    project = str(tmp_path / "project")
+    config = Config(
+        narration=NarrationConfig(
+            debounce_ms=20, stale_after_s=5, min_gap_s=0, connectors=False
+        ),
+        recall=RecallConfig(cooldown_s=0.0),
+        agents=AgentsConfig(
+            claude=False,
+            codex=False,
+            gemini=False,
+            cursor=False,
+            opencode=False,
+            freebuff=False,
+        ),
+    )
+    speaker = FakeSpeaker()
+    service = ReezynService(config, home, speaker=speaker)
+    service.recaller.record(
+        Event(
+            agent="claude",
+            kind="reasoning",
+            text=(
+                "The refresh path rotates the cookie but never invalidates "
+                "the old token."
+            ),
+            session_id="earlier",
+            project=project,
+            ts=time.time() - 3600,
+        )
+    )
+    service.start()
+    try:
+        Spool(home).emit(
+            "generic",
+            Event(
+                agent="claude",
+                kind="prompt",
+                text="why does login still work after refresh token rotation",
+                session_id="now",
+                project=project,
+            ).to_dict(),
+        )
+        deadline = time.time() + 3
+        while not speaker.spoken and time.time() < deadline:
+            time.sleep(0.05)
+        assert speaker.spoken
+        assert speaker.spoken[0].startswith("Earlier today, the agent concluded:")
+        assert service.recap().startswith("You asked: Why does login still work")
+    finally:
+        service.stop()
 
 
 class FakeAmbience:

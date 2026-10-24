@@ -64,6 +64,12 @@ def sanitize_hook_payload(agent: str, payload: dict[str, Any]) -> dict[str, Any]
     if "tool_name" not in out and isinstance(payload.get("tool"), str):
         out["tool_name"] = payload["tool"][:200]
 
+    # UserPromptSubmit carries the developer's own words. That is what lets
+    # Reezyn recall earlier work at the moment a prompt is sent.
+    prompt = payload.get("prompt")
+    if isinstance(prompt, str) and prompt.strip():
+        out["prompt"] = SECRET_VALUE.sub("[redacted]", prompt)[:4000]
+
     return out
 
 

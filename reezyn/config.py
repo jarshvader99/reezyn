@@ -73,6 +73,17 @@ class AmbienceConfig:
 
 
 @dataclass(slots=True)
+class RecallConfig:
+    enabled: bool = True
+    # Conservative by default: one stray shared word is not memory. Recall
+    # also requires two matching terms once a prompt has three.
+    threshold: float = 0.30
+    max_age_days: float = 30.0
+    cooldown_s: float = 90.0
+    recap_minutes: float = 45.0
+
+
+@dataclass(slots=True)
 class AgentsConfig:
     claude: bool = True
     codex: bool = True
@@ -88,6 +99,7 @@ class Config:
     narration: NarrationConfig = field(default_factory=NarrationConfig)
     banter: BanterConfig = field(default_factory=BanterConfig)
     ambience: AmbienceConfig = field(default_factory=AmbienceConfig)
+    recall: RecallConfig = field(default_factory=RecallConfig)
     agents: AgentsConfig = field(default_factory=AgentsConfig)
 
     def save(self, home: Path | None = None) -> Path:
@@ -103,6 +115,7 @@ class Config:
         b = self.banter
         a = self.agents
         m = self.ambience
+        r = self.recall
         return (
             "# Reezyn configuration\n"
             "# Changes here are read when the menu-bar app starts.\n\n"
@@ -133,7 +146,13 @@ class Config:
             f"freebuff = {str(a.freebuff).lower()}\n\n"
             "[ambience]\n"
             f"enabled = {str(m.enabled).lower()}\n"
-            f"volume = {m.volume:.2f}\n"
+            f"volume = {m.volume:.2f}\n\n"
+            "[recall]\n"
+            f"enabled = {str(r.enabled).lower()}\n"
+            f"threshold = {r.threshold:.2f}\n"
+            f"max_age_days = {r.max_age_days:.1f}\n"
+            f"cooldown_s = {r.cooldown_s:.1f}\n"
+            f"recap_minutes = {r.recap_minutes:.1f}\n"
         )
 
 
@@ -159,6 +178,7 @@ def load_config(home: Path | None = None) -> Config:
     narration = _section(raw, "narration")
     banter = _section(raw, "banter")
     ambience = _section(raw, "ambience")
+    recall = _section(raw, "recall")
     agents = _section(raw, "agents")
 
     config = Config(
@@ -188,6 +208,13 @@ def load_config(home: Path | None = None) -> Config:
         ambience=AmbienceConfig(
             enabled=_bool(ambience.get("enabled"), False),
             volume=_clamp_float(ambience.get("volume"), 0.0, 1.0, 0.35),
+        ),
+        recall=RecallConfig(
+            enabled=_bool(recall.get("enabled"), True),
+            threshold=_clamp_float(recall.get("threshold"), 0.15, 0.9, 0.30),
+            max_age_days=_clamp_float(recall.get("max_age_days"), 1, 365, 30.0),
+            cooldown_s=_clamp_float(recall.get("cooldown_s"), 5, 3600, 90.0),
+            recap_minutes=_clamp_float(recall.get("recap_minutes"), 2, 720, 45.0),
         ),
         agents=AgentsConfig(
             claude=_bool(agents.get("claude"), True),

@@ -72,10 +72,12 @@ interpreter path is updated.
 uv run reezyn install claude
 ```
 
-This adds one async `PreToolUse` hook to `~/.claude/settings.json`. The hook
-writes a minimized event to Reezyn's local spool and exits immediately. Reezyn
-then reads the session's `transcript_path` for the latest assistant reasoning
-that led to the tool call.
+This adds two async hooks to `~/.claude/settings.json`: `PreToolUse` and
+`UserPromptSubmit`. Each writes a minimized event to Reezyn's local spool and
+exits immediately. For a tool call Reezyn reads the session's `transcript_path`
+for the latest assistant reasoning that led to it; for a prompt it keeps the
+developer's own words so it can recall earlier work later (see
+[Memory](#memory)).
 
 - Existing settings and hooks are preserved.
 - The previous file is copied to `settings.json.reezyn.bak`.
@@ -174,9 +176,15 @@ Generic event fields:
 }
 ```
 
-`kind` is `reasoning` or `tool`. A tool event needs `tool_name`; a reasoning
-event needs `text`. If no reasoning is available, Reezyn describes the tool
-call instead.
+`kind` is `reasoning`, `tool`, or `prompt`. A tool event needs `tool_name`; a
+reasoning or prompt event needs `text`. If no reasoning is available, Reezyn
+describes the tool call instead.
+
+Every event may carry a `project`: the repository root it belongs to. Hooks and
+watchers fill it in automatically; `reezyn emit` and `reezyn ingest` default it
+to the current directory. The project is what gives Reezyn memory — send
+`--kind prompt` events with `--text` to give a custom agent the same recall that
+Claude Code and Freebuff get.
 
 ## The menu bar
 
@@ -186,6 +194,10 @@ call instead.
 - **Pause narration** — stops the current audio and clears the queue.
 - **Skip this thought** — interrupts the current utterance.
 - **Recent thoughts** — the last six spoken lines.
+- **Recap the last session** — speaks what you asked, what the agent concluded,
+  and what it last touched, without making you re-read the transcript.
+- **Recall when I re-ask** — on by default. When a new prompt overlaps work this
+  project already settled, Reezyn quotes the earlier conclusion first.
 - **Voice** — English (Heart, Michael, Bella, George, Emma), Spanish (Dora,
   Alex, Santa), or French (Siwis). The selected voice also selects the language
   Reezyn speaks around the agent's words.
@@ -261,6 +273,51 @@ claim to know what the agent is doing, only that it is still working. Every
 language pack carries its own set, so banter follows the selected voice.
 Toggle **Lull banter** in the menu, or set `[banter] enabled = false`.
 
+## Memory
+
+Narration is ephemeral: once a line is spoken it is gone. Reezyn also keeps a
+small ledger per project under `~/.reezyn/projects/`, holding what you asked,
+what the agent concluded, and the actions it took. Two behaviors come from it.
+
+**Recall at prompting time.** When a new prompt overlaps something this project
+already settled, Reezyn speaks the earlier conclusion before the agent starts
+working:
+
+> Earlier today, the agent concluded: The refresh path rotates the cookie but
+> never invalidates the old token. That is why the stale session still works.
+
+That is the point where a developer usually re-asks, or re-derives, something
+the agent already worked out. Recall is off the table for the turn in progress,
+fires at most once per prompt, waits at least 90 seconds between lines, and
+never repeats the same memory. A prompt with three or more distinctive terms
+needs at least two to match, so one shared word is not enough to interrupt.
+
+**Recap on demand.** **Recap the last session** in the menu (or `reezyn recap`)
+speaks the last 45 minutes in three sentences: what you asked, what it
+concluded, and the last action. It is the fastest way to catch up after a
+context switch or before reviewing a diff.
+
+Matching is lexical, not a second model: query terms are weighted by how rare
+they are in this project's own history, with a light recency preference. The
+spoken line is the agent's sentence trimmed to fit, never a paraphrase. That
+keeps recall instant and offline, and keeps Reezyn from inventing an opinion
+the agent never had.
+
+```bash
+uv run reezyn recap                      # this project, last 45 minutes
+uv run reezyn recap --minutes 180
+uv run reezyn recall "refresh token rotation"   # what does this project already know?
+```
+
+`reezyn recall` prints earlier conclusions and actions that match a query, with
+timestamps. It is the same ledger the spoken recall uses, so researching a
+feature starts from what the agent already found instead of from a blank
+search.
+
+Claude Code and Freebuff supply prompts today. The other watchers contribute
+conclusions and actions, so recap works for every agent, but recall at prompt
+time needs a prompt event: use `reezyn emit --kind prompt` for anything custom.
+
 ## Configuration
 
 Reezyn creates `~/.reezyn/config.toml`:
@@ -298,10 +355,17 @@ freebuff = true
 [ambience]
 enabled = false
 volume = 0.35           # 0..1; Whisper .15, Soft .35, Clear .55
+
+[recall]
+enabled = true
+threshold = 0.30        # lexical overlap needed before speaking; raise for silence
+max_age_days = 30.0     # older memories are ignored and pruned
+cooldown_s = 90.0       # minimum gap between spoken recalls
+recap_minutes = 45.0    # default window for Recap the last session
 ```
 
-The menu writes voice, pace, presence-bed, and banter changes back here. Other
-edits take effect when the app restarts.
+The menu writes voice, pace, presence-bed, banter, and recall changes back
+here. Other edits take effect when the app restarts.
 
 `REEZYN_HOME` moves all Reezyn state (config, models, spool, logs). Set it in
 the environment of both the menu app and the agent that runs the hook.
@@ -339,6 +403,10 @@ wins until it goes quiet.
 ## Privacy
 
 - Transcripts and rollouts are read locally.
+- The per-project ledger stores your prompts, the agent's conclusions, and a
+  short action phrase per tool call in `~/.reezyn/projects/` (mode `0700`,
+  pruned after 30 days). That is local memory; delete the directory to forget a
+  project.
 - Hook payloads are minimized before they touch disk. Only the session id,
   transcript path, tool name, and description-relevant tool arguments are kept.
   Keys that look like secrets are redacted.

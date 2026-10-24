@@ -22,14 +22,31 @@ class ClaudeHookAdapter:
         self._transcripts = JsonlTail(initial_tail_bytes=INITIAL_TAIL_BYTES)
 
     def handle(self, payload: dict[str, Any]) -> list[Event]:
-        if payload.get("hook_event_name") != "PreToolUse":
+        session_id = str(payload.get("session_id") or "")
+        project = str(payload.get("cwd") or "")
+        event_name = payload.get("hook_event_name")
+
+        if event_name == "UserPromptSubmit":
+            prompt = str(payload.get("prompt") or "").strip()
+            if not prompt:
+                return []
+            return [
+                Event(
+                    agent="claude",
+                    kind="prompt",
+                    text=prompt,
+                    session_id=session_id,
+                    project=project,
+                )
+            ]
+
+        if event_name != "PreToolUse":
             return []
 
         tool_name = str(payload.get("tool_name") or "").strip()
         if not tool_name:
             return []
 
-        session_id = str(payload.get("session_id") or "")
         transcript_path = str(payload.get("transcript_path") or "")
         reasoning = ""
         if transcript_path:
@@ -42,6 +59,7 @@ class ClaudeHookAdapter:
                     kind="reasoning",
                     text=reasoning,
                     session_id=session_id,
+                    project=project,
                     tool_name=tool_name,
                     tool_input=_dict(payload.get("tool_input")),
                 )
@@ -52,6 +70,7 @@ class ClaudeHookAdapter:
                 agent="claude",
                 kind="tool",
                 session_id=session_id,
+                project=project,
                 tool_name=tool_name,
                 tool_input=_dict(payload.get("tool_input")),
             )

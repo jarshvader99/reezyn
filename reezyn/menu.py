@@ -60,6 +60,7 @@ class ReezynMenuApp(rumps.App):
         self.pause_item = rumps.MenuItem("Pause narration", callback=self._toggle_pause)
         self.skip_item = rumps.MenuItem("Skip this thought", callback=self._skip)
         self.recent_menu = rumps.MenuItem("Recent thoughts")
+        self.recap_item = rumps.MenuItem("Recap the last session", callback=self._recap)
         self.recent_items: list[rumps.MenuItem] = []
         for _ in range(6):
             item = rumps.MenuItem("")
@@ -95,6 +96,9 @@ class ReezynMenuApp(rumps.App):
             self.ambience_menu.add(item)
 
         self.banter_item = rumps.MenuItem("Lull banter", callback=self._toggle_banter)
+        self.recall_item = rumps.MenuItem(
+            "Recall when I re-ask", callback=self._toggle_recall
+        )
 
         hooks_menu = rumps.MenuItem("Install agent hooks")
         hooks_menu.add(rumps.MenuItem("Claude Code…", callback=self._install_claude))
@@ -123,11 +127,13 @@ class ReezynMenuApp(rumps.App):
             self.pause_item,
             self.skip_item,
             self.recent_menu,
+            self.recap_item,
             rumps.separator,
             voice_menu,
             pace_menu,
             self.ambience_menu,
             self.banter_item,
+            self.recall_item,
             rumps.separator,
             hooks_menu,
             self.download_item,
@@ -210,6 +216,7 @@ class ReezynMenuApp(rumps.App):
                 else 0
             )
         self.banter_item.state = 1 if self.service.config.banter.enabled else 0
+        self.recall_item.state = 1 if self.service.config.recall.enabled else 0
         self.download_item.hidden = status.model_ready
         if status.state != self._last_status:
             self._refresh_recent()
@@ -343,7 +350,8 @@ class ReezynMenuApp(rumps.App):
         self._install_agent(
             "claude",
             "Install Reezyn's Claude Code hook?\n\n"
-            "This adds one async PreToolUse hook to ~/.claude/settings.json. "
+            "This adds two async hooks to ~/.claude/settings.json: PreToolUse, "
+            "and UserPromptSubmit so Reezyn remembers what you asked. "
             "Reezyn keeps a backup and never replaces your other hooks.",
         )
 
@@ -393,6 +401,15 @@ class ReezynMenuApp(rumps.App):
     def _toggle_banter(self, _sender: Any = None) -> None:
         self.service.set_banter(not self.service.config.banter.enabled)
         self.config = self.service.config
+        self._tick()
+
+    def _toggle_recall(self, _sender: Any = None) -> None:
+        self.service.set_recall(not self.service.config.recall.enabled)
+        self.config = self.service.config
+        self._tick()
+
+    def _recap(self, _sender: Any = None) -> None:
+        self.service.recap()
         self._tick()
 
     def _download_model(self, _sender: Any = None) -> None:

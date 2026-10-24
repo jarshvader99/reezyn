@@ -31,6 +31,48 @@ def test_freebuff_parser_extracts_reasoning_and_tools():
     assert all(event.agent == "freebuff" for event in events)
 
 
+def test_freebuff_user_message_becomes_a_prompt():
+    events = parse_freebuff_messages(
+        [
+            {
+                # Freebuff stores a prompt as a plain content string.
+                "id": "user-2",
+                "variant": "user",
+                "content": "why does the login session survive a refresh?",
+            },
+            {
+                "id": "user-3",
+                "variant": "user",
+                "blocks": [
+                    {"type": "text", "content": "and what about the cookie?"}
+                ],
+            },
+            {
+                "id": "ai-5",
+                "variant": "ai",
+                "blocks": [
+                    {
+                        "type": "text",
+                        "textType": "reasoning",
+                        "thinkingId": "t-5",
+                        "content": "The token is never invalidated.",
+                    }
+                ],
+            },
+        ],
+        "reezyn/chat-3",
+        project="reezyn",
+    )
+    prompts = [event for event in events if event.kind == "prompt"]
+    assert [event.text for event in prompts] == [
+        "why does the login session survive a refresh?",
+        "and what about the cookie?",
+    ]
+    assert all(event.project == "reezyn" for event in prompts)
+    assert prompts[0].session_id == "reezyn/chat-3"
+    assert any(event.kind == "reasoning" for event in events)
+
+
 def test_freebuff_uses_commentary_only_when_there_is_no_reasoning():
     events = parse_freebuff_messages(
         [
@@ -87,6 +129,8 @@ def test_freebuff_watcher_skips_history_and_emits_new_blocks(tmp_path):
         assert [event.kind for event in seen] == ["reasoning", "tool"]
         assert seen[0].text == "The snapshot changed, so I'll read only the new block."
         assert seen[1].tool_name == "read_files"
+        # The project folder name is how a watched chat joins the right ledger.
+        assert all(event.project == "reezyn" for event in seen)
 
         count = len(seen)
         chat.write_text(json.dumps(fixture[:2] + [next_message]))

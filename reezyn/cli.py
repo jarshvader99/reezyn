@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import shutil
 import sys
 import time
@@ -16,6 +17,8 @@ from . import __version__
 from .config import app_home, load_config
 from .events import Event
 from .installers import (
+    CLAUDE_HOOK_EVENTS,
+    GEMINI_HOOK_EVENTS,
     hook_command,
     install_hooks,
     is_installed,
@@ -48,6 +51,10 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_doctor(args)
     if command == "simulate":
         return cmd_simulate(args)
+    if command == "recap":
+        return cmd_recap(args)
+    if command == "recall":
+        return cmd_recall(args)
     if command == "version":
         print(__version__)
         return 0
@@ -76,7 +83,8 @@ def build_parser() -> argparse.ArgumentParser:
     emit.add_argument("--text", default="", help="Reasoning excerpt")
     emit.add_argument("--tool", default="", help="Tool name")
     emit.add_argument("--input", default="{}", help="Tool input JSON")
-    emit.add_argument("--kind", choices=["reasoning", "tool"], default=None)
+    emit.add_argument("--kind", choices=["reasoning", "tool", "prompt"], default=None)
+    emit.add_argument("--project", default="", help="Project directory (default: cwd)")
 
     ingest = sub.add_parser("ingest", help="Read generic events as JSONL on stdin")
     ingest.add_argument("--agent", default="generic")
@@ -94,6 +102,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     simulate = sub.add_parser("simulate", help="Send a demo session to a running app")
     simulate.add_argument("--pause", type=float, default=0.45)
+
+    recap = sub.add_parser(
+        "recap", help="Print what the last stretch of work asked, concluded, and touched"
+    )
+    recap.add_argument("--project", default="", help="Project directory (default: cwd)")
+    recap.add_argument("--minutes", type=float, default=None, help="How far back to look")
+
+    recall = sub.add_parser("recall", help="Search this project's earlier agent work")
+    recall.add_argument("query", help="What you are about to research or ask")
+    recall.add_argument("--project", default="", help="Project directory (default: cwd)")
+    recall.add_argument("--limit", type=int, default=5)
+    recall.add_argument("--threshold", type=float, default=None)
 
     sub.add_parser("version", help="Print the version")
     return parser
@@ -171,8 +191,8 @@ def cmd_emit(args: argparse.Namespace) -> int:
     if kind == "tool" and not args.tool:
         print("A tool event needs --tool", file=sys.stderr)
         return 2
-    if kind == "reasoning" and not args.text:
-        print("A reasoning event needs --text", file=sys.stderr)
+    if kind in ("reasoning", "prompt") and not args.text:
+        print(f"A {kind} event needs --text", file=sys.stderr)
         return 2
 
     event = Event(
@@ -180,6 +200,7 @@ def cmd_emit(args: argparse.Namespace) -> int:
         kind=kind,
         text=args.text,
         session_id=args.session,
+        project=args.project or os.getcwd(),
         tool_name=args.tool,
         tool_input=tool_input,
     )
@@ -202,6 +223,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
         if not isinstance(value, dict):
             continue
         value.setdefault("agent", args.agent)
+        value.setdefault("project", os.getcwd())
         event = Event.from_dict(value)
         spool.emit("generic", event.to_dict())
         count += 1
@@ -399,6 +421,53 @@ def cmd_simulate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_recap(args: argparse.Namespace) -> int:
+    from .ledger import LedgerStore
+    from .languages import pack_for_voice
+    from .recall import Recaller
+
+    home = app_home()
+    config = load_config(home)
+    recaller = Recaller(
+        LedgerStore(home),
+        config.recall,
+        pack=pack_for_voice(config.speech.voice),
+    )
+    window = args.minutes * 60.0 if args.minutes else None
+    print(recaller.recap(args.project or os.getcwd(), window_s=window))
+    return 0
+
+
+def cmd_recall(args: argparse.Namespace) -> int:
+    from .ledger import LedgerStore
+
+    home = app_home()
+    config = load_config(home)
+    ledger = LedgerStore(home).for_project(args.project or os.getcwd())
+    threshold = args.threshold if args.threshold is not None else config.recall.threshold
+    matches = ledger.search(
+        args.query,
+        threshold=threshold,
+        max_age_s=config.recall.max_age_days * 86400.0,
+        limit=max(1, args.limit),
+    )
+    if not matches:
+        print("No earlier work in this project matches that.")
+        return 0
+    labels = {"thought": "concluded", "action": "action", "prompt": "asked"}
+    for match in matches:
+        entry = match.entry
+        stamp = time.strftime("%Y-%m-%d %H:%M", time.localtime(entry.ts))
+        label = labels.get(entry.role, entry.role)
+        print(f"{stamp}  {label}: {_clip(entry.text, 220)}")
+    return 0
+
+
+def _clip(text: str, width: int) -> str:
+    text = " ".join(text.split())
+    return text if len(text) <= width else text[: width - 1].rstrip() + "…"
+
+
 def _demo_events() -> list[Event]:
     return [
         Event(
@@ -469,26 +538,29 @@ def _app_likely_running() -> bool:
 
 
 def _hook_snippet(settings: dict[str, Any], agent: str) -> dict[str, Any]:
-    event = "PreToolUse" if agent == "claude" else "BeforeTool"
+    events = CLAUDE_HOOK_EVENTS if agent == "claude" else GEMINI_HOOK_EVENTS
     hooks = settings.get("hooks")
-    groups = hooks.get(event) if isinstance(hooks, dict) else None
-    ours = []
-    if isinstance(groups, list):
-        for group in groups:
-            if not isinstance(group, dict):
-                continue
-            handlers = group.get("hooks")
-            if not isinstance(handlers, list):
-                continue
-            if any(
-                isinstance(handler, dict)
-                and isinstance(handler.get("command"), str)
-                and "reezyn" in handler["command"]
-                and f"hook {agent}" in handler["command"]
-                for handler in handlers
-            ):
-                ours.append(group)
-    return {"hooks": {event: ours}}
+    snippet: dict[str, Any] = {}
+    for event in events:
+        groups = hooks.get(event) if isinstance(hooks, dict) else None
+        ours = []
+        if isinstance(groups, list):
+            for group in groups:
+                if not isinstance(group, dict):
+                    continue
+                handlers = group.get("hooks")
+                if not isinstance(handlers, list):
+                    continue
+                if any(
+                    isinstance(handler, dict)
+                    and isinstance(handler.get("command"), str)
+                    and "reezyn" in handler["command"]
+                    and f"hook {agent}" in handler["command"]
+                    for handler in handlers
+                ):
+                    ours.append(group)
+        snippet[event] = ours
+    return {"hooks": snippet}
 
 
 def _audio_status() -> str:

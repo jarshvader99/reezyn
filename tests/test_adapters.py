@@ -36,6 +36,41 @@ def test_claude_extracts_reasoning_then_falls_back_to_tool(tmp_path):
     assert events[0].kind == "tool"
 
 
+def test_claude_prompt_hook_captures_the_question():
+    adapter = ClaudeHookAdapter()
+    payload = {
+        "session_id": "claude-2",
+        "hook_event_name": "UserPromptSubmit",
+        "cwd": "/Users/me/reezyn",
+        "prompt": "why is the refresh token still valid?",
+    }
+    events = adapter.handle(payload)
+    assert len(events) == 1
+    assert events[0].kind == "prompt"
+    assert events[0].project == "/Users/me/reezyn"
+    assert events[0].text == "why is the refresh token still valid?"
+
+    # The spool keeps the prompt, so the app can remember what was asked.
+    clean = sanitize_hook_payload("claude", payload)
+    assert clean["prompt"] == "why is the refresh token still valid?"
+
+
+def test_claude_tool_events_carry_the_project(tmp_path):
+    transcript = tmp_path / "session.jsonl"
+    shutil.copy(FIXTURES / "claude_transcript.jsonl", transcript)
+    events = ClaudeHookAdapter().handle(
+        {
+            "session_id": "claude-1",
+            "hook_event_name": "PreToolUse",
+            "cwd": "/Users/me/reezyn",
+            "transcript_path": str(transcript),
+            "tool_name": "Read",
+            "tool_input": {"file_path": "src/auth/session.ts"},
+        }
+    )
+    assert events[0].project == "/Users/me/reezyn"
+
+
 def test_claude_assistant_text_supports_thinking():
     record = {
         "type": "assistant",

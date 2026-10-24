@@ -14,6 +14,12 @@ from typing import Any, Literal
 
 AgentName = Literal["claude", "gemini"]
 
+# Claude gets a prompt hook as well as a tool hook: the prompt is how Reezyn
+# learns what the developer asked, so it can recall earlier work when a
+# question comes back around.
+CLAUDE_HOOK_EVENTS = ("PreToolUse", "UserPromptSubmit")
+GEMINI_HOOK_EVENTS = ("BeforeTool",)
+
 
 @dataclass(slots=True)
 class InstallResult:
@@ -60,6 +66,21 @@ def install_hooks(
             "PreToolUse",
             {
                 "matcher": "*",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": hook_command(agent),
+                        "timeout": 5,
+                        "async": True,
+                    }
+                ],
+            },
+        )
+        _replace_ours(settings, "UserPromptSubmit", agent)
+        _add_group(
+            settings,
+            "UserPromptSubmit",
+            {
                 "hooks": [
                     {
                         "type": "command",
@@ -119,7 +140,7 @@ def uninstall_hooks(
 ) -> InstallResult:
     path = settings_path(agent, system_home)
     settings = _load_settings(path)
-    events = ["PreToolUse"] if agent == "claude" else ["BeforeTool"]
+    events = CLAUDE_HOOK_EVENTS if agent == "claude" else GEMINI_HOOK_EVENTS
     changed = False
     for event in events:
         if _replace_ours(settings, event, agent):
@@ -148,8 +169,8 @@ def is_installed(agent: AgentName, system_home: Path | None = None) -> bool:
         settings = _load_settings(path)
     except ValueError:
         return False
-    event = "PreToolUse" if agent == "claude" else "BeforeTool"
-    return bool(_remove_ours(settings, event, agent, mutate=False))
+    events = CLAUDE_HOOK_EVENTS if agent == "claude" else GEMINI_HOOK_EVENTS
+    return all(bool(_remove_ours(settings, event, agent, mutate=False)) for event in events)
 
 
 def _load_settings(path: Path) -> dict[str, Any]:

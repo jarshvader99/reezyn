@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-EventKind = Literal["reasoning", "tool"]
+EventKind = Literal["reasoning", "tool", "prompt"]
 
 
 @dataclass(slots=True)
@@ -16,6 +16,9 @@ class Event:
     kind: EventKind
     text: str = ""
     session_id: str = ""
+    # The working directory (or project name) this event belongs to. It is what
+    # makes per-project memory possible.
+    project: str = ""
     tool_name: str = ""
     tool_input: dict[str, Any] = field(default_factory=dict)
     ts: float = field(default_factory=time.time)
@@ -37,6 +40,7 @@ class Event:
             "kind": self.kind,
             "text": self.text,
             "session_id": self.session_id,
+            "project": self.project,
             "tool_name": self.tool_name,
             "tool_input": self.tool_input,
             "ts": self.ts,
@@ -46,7 +50,7 @@ class Event:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Event:
         kind = data.get("kind")
-        if kind not in ("reasoning", "tool"):
+        if kind not in ("reasoning", "tool", "prompt"):
             kind = "reasoning" if data.get("text") else "tool"
         tool_input = data.get("tool_input")
         if not isinstance(tool_input, dict):
@@ -56,6 +60,7 @@ class Event:
             kind=kind,
             text=str(data.get("text") or ""),
             session_id=str(data.get("session_id") or ""),
+            project=str(data.get("project") or ""),
             tool_name=str(data.get("tool_name") or ""),
             tool_input=tool_input,
             ts=_optional_ts(data.get("ts")),

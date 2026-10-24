@@ -553,6 +553,7 @@ class Narrator:
         self._last_banter = 0.0
         self._banter_count = 0
         self._banter_index = 0
+        self._announce = ""
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -596,12 +597,30 @@ class Narrator:
         self._wake.set()
         self._notify()
 
+    def announce(self, text: str) -> None:
+        """Speak a composed line (a recall or a recap) ahead of queued thoughts.
+
+        The line is already finished, so the debounce does not apply; it is only
+        useful now. Pause, skip, and speech errors still apply.
+        """
+
+        text = text.strip()
+        if not text:
+            return
+        with self._lock:
+            if self._paused:
+                return
+            self._announce = text
+            self._last_activity = time.monotonic()
+        self._wake.set()
+
     def pause(self) -> None:
         with self._lock:
             if self._paused:
                 return
             self._paused = True
             self._pending.clear()
+            self._announce = ""
             self._cancel_current = self._speaking
         self._stop_speech()
         self._notify()
@@ -628,6 +647,7 @@ class Narrator:
     def skip(self) -> None:
         with self._lock:
             self._pending.clear()
+            self._announce = ""
             self._cancel_current = self._speaking
             self._banter_count = 0
             self._last_banter = 0.0
@@ -695,14 +715,22 @@ class Narrator:
             events: list[Event] | None = None
             narration: Narration | None = None
             banter = False
+            announced = ""
             with self._lock:
-                if not self._paused and not self._speaking and self._pending:
-                    now = time.monotonic()
-                    if now - self._last_submit >= self._config.debounce_ms / 1000.0:
-                        events = self._pending
-                        self._pending = []
+                if not self._paused and not self._speaking:
+                    if self._announce:
+                        announced = self._announce
+                        self._announce = ""
                         self._speaking = True
-            if events is None:
+                    elif self._pending:
+                        now = time.monotonic()
+                        if now - self._last_submit >= self._config.debounce_ms / 1000.0:
+                            events = self._pending
+                            self._pending = []
+                            self._speaking = True
+            if announced:
+                narration = Narration(text=announced, fingerprint="announce")
+            elif events is None:
                 line = self._due_banter()
                 if not line:
                     self._wake.wait(0.08)

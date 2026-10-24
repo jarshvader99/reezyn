@@ -224,6 +224,15 @@ def _chat_files(root: Path) -> Iterator[Path]:
                 continue
 
 
+def _project_name(path: Path) -> str:
+    """Freebuff names a project folder after the working directory."""
+
+    try:
+        return path.parents[2].name
+    except IndexError:
+        return ""
+
+
 def _load_blocks(path: Path) -> list[_Block] | None:
     try:
         raw = path.read_text(encoding="utf-8")
@@ -235,17 +244,28 @@ def _load_blocks(path: Path) -> list[_Block] | None:
         return None
     if not isinstance(messages, list):
         return None
-    return extract_freebuff_blocks(messages, _session_id(path))
+    return extract_freebuff_blocks(
+        messages, _session_id(path), project=_project_name(path)
+    )
 
 
 def parse_freebuff_messages(
-    messages: list[Any], session_id: str, now: float | None = None
+    messages: list[Any],
+    session_id: str,
+    now: float | None = None,
+    project: str = "",
 ) -> list[Event]:
-    return [block.event for block in extract_freebuff_blocks(messages, session_id, now)]
+    return [
+        block.event
+        for block in extract_freebuff_blocks(messages, session_id, now, project)
+    ]
 
 
 def extract_freebuff_blocks(
-    messages: list[Any], session_id: str, now: float | None = None
+    messages: list[Any],
+    session_id: str,
+    now: float | None = None,
+    project: str = "",
 ) -> list[_Block]:
     observed = time.time() if now is None else now
     out: list[_Block] = []
@@ -253,15 +273,37 @@ def extract_freebuff_blocks(
     for message_index, message in enumerate(messages):
         if not isinstance(message, dict):
             continue
+        message_id = str(message.get("id") or f"message-{message_index}")
+        ts = _record_ts(message) or observed
+        variant = str(message.get("variant") or "").lower()
+
+        # The developer's own message. It is never spoken, but it is what makes
+        # "we have been here before" possible later in the project. Freebuff
+        # stores one as a plain `content` string, without blocks.
+        if variant in ("user", "human"):
+            prompt = _user_text(message)
+            if prompt:
+                out.append(
+                    _Block(
+                        key=f"{message_id}:prompt",
+                        event=Event(
+                            agent="freebuff",
+                            kind="prompt",
+                            text=prompt,
+                            session_id=session_id,
+                            project=project,
+                            ts=ts,
+                        ),
+                    )
+                )
+            continue
+
+        if variant and variant not in ("ai", "assistant", "model"):
+            continue
         blocks = message.get("blocks")
         if not isinstance(blocks, list) or not blocks:
             continue
-        variant = str(message.get("variant") or "").lower()
-        if variant and variant not in ("ai", "assistant", "model"):
-            continue
 
-        message_id = str(message.get("id") or f"message-{message_index}")
-        ts = _record_ts(message) or observed
         local: list[_Block] = []
         reasoning = False
         tool = False
@@ -287,6 +329,7 @@ def extract_freebuff_blocks(
                     kind="reasoning",
                     text=content.strip(),
                     session_id=session_id,
+                    project=project,
                     ts=ts,
                 )
                 if text_type in REASONING_TEXT_TYPES:
@@ -316,6 +359,7 @@ def extract_freebuff_blocks(
                             agent="freebuff",
                             kind="tool",
                             session_id=session_id,
+                            project=project,
                             tool_name=str(name),
                             tool_input=_tool_input(block.get("input")),
                             ts=ts,
@@ -338,6 +382,27 @@ def extract_freebuff_blocks(
         out.extend(local)
 
     return out
+
+
+def _user_text(message: dict[str, Any]) -> str:
+    """The prompt part of a user message, without its attachments."""
+
+    parts: list[str] = []
+    blocks = message.get("blocks")
+    if isinstance(blocks, list):
+        for block in blocks:
+            if not isinstance(block, dict):
+                continue
+            if str(block.get("type") or "").lower() != "text":
+                continue
+            content = block.get("content")
+            if isinstance(content, str) and content.strip():
+                parts.append(content.strip())
+    if not parts:
+        content = message.get("content")
+        if isinstance(content, str) and content.strip():
+            parts.append(content.strip())
+    return "\n".join(parts)[:4000]
 
 
 def _tool_input(value: Any) -> dict[str, Any]:
