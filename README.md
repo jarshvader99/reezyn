@@ -27,6 +27,20 @@ rest, and drops stale material instead of reading a backlog.
 
 ## Install
 
+### From a disk image
+
+Open `Reezyn-<version>.dmg`, drag Reezyn to Applications, and launch it. The
+bundle carries its own Python and dependencies, so no `uv` or Python install is
+needed. It downloads the Kokoro voice model on first use from **Download voice
+model** in the menu; the same download is available from a terminal:
+
+```bash
+/Applications/Reezyn.app/Contents/MacOS/Reezyn setup
+/Applications/Reezyn.app/Contents/MacOS/Reezyn install claude
+```
+
+### From a checkout
+
 ```bash
 cd reezyn
 uv sync
@@ -345,6 +359,30 @@ uv run pytest
 uv run python -m compileall -q reezyn
 ```
 
+### Building the app
+
+```bash
+./packaging/build_app.sh
+```
+
+This renders the icon, builds `Reezyn.app` with PyInstaller, signs it with the
+Developer ID Application identity and the hardened runtime, and writes
+`dist/Reezyn.app` plus `dist/Reezyn-<version>.dmg`. Set `REEZYN_SIGN_IDENTITY`
+to sign with another identity. The bundle is arm64, matching the interpreter it
+is built with; there is no universal build yet.
+
+A Developer ID signature alone is not enough for Gatekeeper on another Mac.
+Supply notarization credentials to submit and staple the disk image:
+
+```bash
+# Profile stored with `xcrun notarytool store-credentials`
+NOTARY_PROFILE=reezyn ./packaging/build_app.sh
+
+# Or an App Store Connect API key
+NOTARY_KEY=~/AuthKey_XXXX.p8 NOTARY_KEY_ID=XXXX NOTARY_ISSUER=... \
+  ./packaging/build_app.sh
+```
+
 The test suite covers speech cleanup and excerpting, burst coalescing and
 deduplication, all six agent formats, hook installers, the cross-process
 spool, and an end-to-end Claude hook → fake speaker run. The real Kokoro engine
@@ -366,11 +404,14 @@ reezyn/
   tts.py         Kokoro setup, streaming playback, interruption
   spool.py       cross-process event handoff
   installers.py  backed-up hook install/uninstall
+packaging/       PyInstaller spec, icon, entitlements, build/sign script
 ```
 
 ## Known limitations
 
-- This is an early macOS build, not a signed `.app` bundle.
+- `Reezyn.app` is Developer ID-signed but only Gatekeeper-approved once the
+  disk image is notarized; a build without notarization credentials is blocked
+  on other Macs.
 - Claude may hide or redact chain-of-thought; when it does, Reezyn uses visible
   assistant text or a tool description.
 - Codex encrypted reasoning cannot be read.

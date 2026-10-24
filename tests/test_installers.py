@@ -1,13 +1,58 @@
 from __future__ import annotations
 
 import json
+import shlex
+import sys
 
 from reezyn.installers import (
+    hook_command,
     install_hooks,
     is_installed,
     settings_path,
     uninstall_hooks,
 )
+
+
+def test_source_checkout_hook_uses_the_module(monkeypatch):
+    monkeypatch.delattr(sys, "frozen", raising=False)
+    assert hook_command("claude") == \
+        f"{shlex.quote(sys.executable)} -m reezyn hook claude"
+
+
+def test_bundled_app_dispatches_the_hook_directly(monkeypatch):
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    assert hook_command("gemini") == f"{shlex.quote(sys.executable)} hook gemini"
+
+
+def test_existing_bundled_hook_is_recognized(tmp_path, monkeypatch):
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    path = settings_path("claude", tmp_path)
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        json.dumps(
+            {
+                "hooks": {
+                    "PreToolUse": [
+                        {
+                            "matcher": "*",
+                            "hooks": [
+                                {
+                                    "type": "command",
+                                    "command": "/Applications/Reezyn.app/Contents/MacOS/Reezyn hook claude",
+                                }
+                            ],
+                        }
+                    ]
+                }
+            }
+        )
+    )
+    assert is_installed("claude", system_home=tmp_path)
+
+    # Installing from a different build replaces it instead of adding another.
+    install_hooks("claude", system_home=tmp_path)
+    settings = json.loads(path.read_text())
+    assert len(settings["hooks"]["PreToolUse"]) == 1
 
 
 def test_claude_install_preserves_existing_settings(tmp_path, monkeypatch):

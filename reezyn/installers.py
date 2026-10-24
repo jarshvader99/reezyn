@@ -25,6 +25,10 @@ class InstallResult:
 
 
 def hook_command(agent: AgentName) -> str:
+    # A bundled Reezyn.app is its own interpreter, so it dispatches the hook
+    # subcommand directly; a source checkout runs the module with its Python.
+    if getattr(sys, "frozen", False):
+        return f"{shlex.quote(sys.executable)} hook {agent}"
     return f"{shlex.quote(sys.executable)} -m reezyn hook {agent}"
 
 
@@ -222,7 +226,7 @@ def _is_our_handler(handler: Any, agent: AgentName) -> bool:
     command = handler.get("command")
     if not isinstance(command, str):
         return False
-    return "reezyn" in command and f"hook {agent}" in command
+    return "reezyn" in command.lower() and f"hook {agent}" in command
 
 
 def _read_text(path: Path) -> str:
