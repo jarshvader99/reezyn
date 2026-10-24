@@ -13,8 +13,8 @@ from reezyn.config import (
     SpeechConfig,
     load_config,
 )
-from reezyn.languages import DEFAULT_PACK
 from reezyn.events import Event
+from reezyn.languages import DEFAULT_PACK
 from reezyn.runtime import is_running
 from reezyn.service import ReezynService
 from reezyn.spool import Spool
