@@ -44,7 +44,7 @@ class Event:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Event":
+    def from_dict(cls, data: dict[str, Any]) -> Event:
         kind = data.get("kind")
         if kind not in ("reasoning", "tool"):
             kind = "reasoning" if data.get("text") else "tool"
