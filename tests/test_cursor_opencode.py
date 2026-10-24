@@ -115,6 +115,61 @@ def test_opencode_current_schema_watcher(tmp_path):
         watcher.stop()
 
 
+def test_opencode_waits_for_edit_target_before_narrating(tmp_path):
+    db = tmp_path / "opencode.db"
+    con = sqlite3.connect(db)
+    con.execute(
+        "CREATE TABLE session_message ("
+        "id TEXT PRIMARY KEY, session_id TEXT, type TEXT, seq INTEGER, "
+        "time_created INTEGER, time_updated INTEGER, data TEXT)"
+    )
+    now_ms = int(time.time() * 1000)
+    data = {
+        "time": {"created": now_ms, "streamed": now_ms},
+        "content": [
+            {
+                "type": "tool",
+                "name": "edit",
+                "state": {
+                    "status": "running",
+                    "input": {"newString": "I'll add the new setting."},
+                },
+            }
+        ],
+    }
+    con.execute(
+        "INSERT INTO session_message VALUES (?,?,?,?,?,?,?)",
+        ("msg-edit", "session-edit", "assistant", 1, now_ms, now_ms, json.dumps(data)),
+    )
+    con.commit()
+    con.close()
+
+    seen = []
+    watcher = OpenCodeWatcher(seen.append, db_path=db, poll_s=0.05)
+    watcher.scan_now()
+    assert seen == []
+
+    con = sqlite3.connect(db)
+    data["content"][0]["state"] = {
+        "status": "completed",
+        "input": {
+            "path": "/Users/me/app/src/auth/session.ts",
+            "newString": "I'll add the new setting.",
+        },
+    }
+    con.execute(
+        "UPDATE session_message SET data = ? WHERE id = ?",
+        (json.dumps(data), "msg-edit"),
+    )
+    con.commit()
+    con.close()
+
+    watcher.scan_now()
+    assert len(seen) == 1
+    assert seen[0].tool_name == "edit"
+    assert seen[0].tool_input["path"] == "/Users/me/app/src/auth/session.ts"
+
+
 def test_opencode_legacy_message_part_schema(tmp_path):
     db = tmp_path / "opencode.db"
     con = sqlite3.connect(db)

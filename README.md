@@ -179,6 +179,7 @@ model = "int8"          # int8 or fp16
 
 [narration]
 max_words = 42
+max_sentences = 2       # 0 = no sentence limit; raise max_words to fit longer thoughts
 debounce_ms = 700
 stale_after_s = 9.0
 min_gap_s = 0.35
@@ -206,7 +207,10 @@ Reasoning is cleaned before it reaches Kokoro:
 - fenced and inline code are removed or reduced to a filename
 - markdown, URLs, and full paths are stripped
 - snake_case and camelCase become words
-- at most two short sentences are selected, capped by `max_words`
+- at most `max_sentences` short sentences are selected (two by default), capped
+  by `max_words`
+- set `max_sentences = 0` and raise `max_words` (up to 400) to hear a whole
+  summary; restart the app to apply it
 - a little connective language is added occasionally
 
 If the reasoning is shorter than nine words and a tool call follows, Reezyn adds
@@ -217,6 +221,11 @@ a short action clause, for example:
 If no reasoning is available, it falls back to tool descriptions:
 
 > I'm searching the codebase, then running the tests.
+
+When the tool input names a target file — including Codex patch text and
+OpenCode's completed file list — the file is named instead:
+
+> I'm updating session.ts.
 
 Multiple active sessions are kept separate: the most recently active session
 wins until it goes quiet.

@@ -21,6 +21,7 @@ import numpy as np
 from .config import SpeechConfig
 
 RELEASE = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1"
+TARGET_PEAK = 0.95
 MODEL_FILES = {
     "int8": ("kokoro-v1.0.int8.onnx", f"{RELEASE}/kokoro-v1.0.int8.onnx"),
     "fp16": ("kokoro-v1.0.fp16.onnx", f"{RELEASE}/kokoro-v1.0.fp16.onnx"),
@@ -96,6 +97,46 @@ def _download(
         raise
     if progress:
         progress(label, downloaded, downloaded)
+
+
+def _prepare_samples(audio: np.ndarray, sample_rate: int, volume: float) -> np.ndarray:
+    """Remove subsonic energy and keep the signal below full scale.
+
+    Kokoro's output has a small DC offset and measurable energy below 20 Hz.
+    On small speakers that rumble eats headroom and can sound like distortion,
+    so the chunk is high-passed before the volume gain is applied. The peak
+    guard scales a chunk down instead of hard-clipping it.
+    """
+
+    samples = np.asarray(audio, dtype=np.float32).reshape(-1)
+    if samples.size == 0:
+        return samples
+    samples = np.nan_to_num(samples, nan=0.0, posinf=0.0, neginf=0.0)
+    samples = _dc_block(samples, sample_rate)
+
+    gain = max(0.0, min(1.0, float(volume)))
+    peak = float(np.max(np.abs(samples)))
+    if peak > 0:
+        gain = min(gain, TARGET_PEAK / peak)
+    return (samples * gain).astype(np.float32, copy=False)
+
+
+def _dc_block(samples: np.ndarray, sample_rate: int, cutoff_hz: float = 35.0) -> np.ndarray:
+    """A one-pole high-pass filter with its corner just below speech."""
+
+    # R = exp(-2*pi*fc/fs), approximated well for the small ratios we use.
+    ratio = min(0.5, max(0.001, cutoff_hz / max(1, sample_rate)))
+    decay = max(0.9, min(0.9999, 1.0 - (2.0 * np.pi * ratio)))
+
+    output = np.empty_like(samples)
+    previous_input = float(samples[0])
+    previous_output = 0.0
+    for index in range(samples.size):
+        value = float(samples[index])
+        previous_output = value - previous_input + decay * previous_output
+        previous_input = value
+        output[index] = previous_output
+    return output
 
 
 class KokoroSpeaker:
@@ -253,8 +294,7 @@ class KokoroSpeaker:
     def _play(self, audio: np.ndarray, sample_rate: int, stop: threading.Event) -> bool:
         if audio is None or len(audio) == 0:
             return True
-        samples = np.asarray(audio, dtype=np.float32).reshape(-1)
-        samples = np.clip(samples * float(self.config.volume), -1.0, 1.0)
+        samples = _prepare_samples(audio, sample_rate, self.config.volume)
 
         if self._can_use_sounddevice():
             try:
@@ -282,7 +322,9 @@ class KokoroSpeaker:
         with self._play_lock:
             if stop.is_set():
                 return False
-            sd.play(samples, sample_rate, blocking=False)
+            # A larger PortAudio buffer avoids dropouts while Kokoro is
+            # synthesizing the next chunk on another thread.
+            sd.play(samples, sample_rate, blocking=False, latency="high")
         while True:
             if stop.is_set():
                 sd.stop()

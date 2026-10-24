@@ -46,6 +46,16 @@ def test_select_excerpt_prefers_complete_short_sentences():
     assert "Finally" not in excerpt
 
 
+def test_select_excerpt_sentence_limit_and_whole_thought():
+    text = "First idea here. Second idea here. Third idea here."
+    assert select_excerpt(text, max_words=50, max_sentences=1) == "First idea here."
+    assert "Third" not in select_excerpt(text, max_words=50, max_sentences=2)
+    assert (
+        select_excerpt(text, max_words=50, max_sentences=0)
+        == "First idea here. Second idea here. Third idea here."
+    )
+
+
 def test_describe_tool_maps_common_actions():
     assert describe_tool("Bash", {"command": "npm test -- auth"}) == "running the tests"
     assert describe_tool("Read", {"file_path": "/a/b/session.ts"}) == "reading session.ts"
@@ -54,8 +64,24 @@ def test_describe_tool_maps_common_actions():
     assert describe_tool("WebSearch", {}) == "checking the docs"
     assert describe_tool("run_terminal_cmd", {"command": "pytest"}) == "running the tests"
     assert describe_tool("search_replace", {"file_path": "src/auth.ts"}) == "updating auth.ts"
+    assert describe_tool("write", {"path": "src/new.ts"}) == "writing new.ts"
+    assert describe_tool("delete_file", {"path": "src/old.ts"}) == "deleting old.ts"
     assert describe_tool("list_dir", {}) == "finding the relevant files"
     assert describe_tool("fetch_rules", {}) == "checking the project rules"
+    assert (
+        describe_tool(
+            "apply_patch",
+            {"input": "*** Begin Patch\n*** Update File: src/auth/session.ts\n@@\n"},
+        )
+        == "updating session.ts"
+    )
+    assert (
+        describe_tool(
+            "edit",
+            {"metadata": {"files": [{"file": "src/auth/session.ts"}]}},
+        )
+        == "updating session.ts"
+    )
 
 
 def test_compose_prefers_reasoning_and_respects_staleness():
@@ -87,6 +113,25 @@ def test_compose_prefers_reasoning_and_respects_staleness():
         events, NarrationConfig(connectors=False, stale_after_s=1), now=now + 10
     )
     assert stale is None
+
+
+def test_compose_can_include_the_whole_thought():
+    now = time.time()
+    events = [
+        Event(
+            agent="test",
+            kind="reasoning",
+            text="First idea here. Second idea here. Third idea here.",
+            ts=now,
+        )
+    ]
+    narration = compose_narration(
+        events,
+        NarrationConfig(connectors=False, max_words=50, max_sentences=0),
+        now=now + 0.2,
+    )
+    assert narration is not None
+    assert narration.text == "First idea here. Second idea here. Third idea here."
 
 
 def test_compose_appends_action_to_very_short_reasoning():

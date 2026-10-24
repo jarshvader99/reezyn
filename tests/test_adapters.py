@@ -139,11 +139,13 @@ def test_hook_sanitizer_keeps_only_useful_fields():
                 "command": "API_KEY=sk-abcdefghijklmnopqrstuvwxyz npm test",
                 "env": {"SECRET": "nope"},
                 "content": "very large file body",
+                "file": "src/auth/session.ts",
             },
         },
     )
     assert clean["tool_name"] == "Bash"
     assert "command" in clean["tool_input"]
+    assert clean["tool_input"]["file"] == "src/auth/session.ts"
     assert "env" not in clean["tool_input"]
     assert "content" not in clean["tool_input"]
     assert "sk-abcdefghijklmnopqrstuvwxyz" not in clean["tool_input"]["command"]

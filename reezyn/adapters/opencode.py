@@ -27,6 +27,33 @@ log = logging.getLogger("reezyn")
 RECENT_WINDOW_MS = 180_000
 SEEN_TTL_S = 900.0
 
+EDIT_TOOL_NAMES = {
+    "apply_patch",
+    "delete_file",
+    "edit",
+    "edit_file",
+    "edit_notebook",
+    "multiedit",
+    "notebookedit",
+    "patch",
+    "replace",
+    "search_replace",
+    "write",
+    "write_file",
+}
+FILE_PATH_KEYS = (
+    "path",
+    "file_path",
+    "filePath",
+    "filepath",
+    "file",
+    "filename",
+    "target_file",
+    "targetFile",
+    "relativePath",
+    "absolute_path",
+)
+
 
 def opencode_home() -> Path:
     override = os.environ.get("OPENCODE_DATA")
@@ -162,6 +189,12 @@ class OpenCodeWatcher:
                 status = state.get("status")
                 if not tool_input and status in (None, "running"):
                     continue
+                tool_input = _with_metadata_path(tool_input, state)
+                if _is_edit_tool(name) and not _has_file_path(tool_input):
+                    # A streamed edit can briefly expose only its replacement
+                    # text. Wait for OpenCode to report the target file instead
+                    # of narrating "editing the files".
+                    continue
                 event = Event(
                     agent="opencode",
                     kind="tool",
@@ -224,6 +257,9 @@ class OpenCodeWatcher:
             state = state if isinstance(state, dict) else {}
             raw_input = state.get("input")
             tool_input = sanitize_tool_input(raw_input) if isinstance(raw_input, dict) else {}
+            tool_input = _with_metadata_path(tool_input, data)
+            if _is_edit_tool(name) and not _has_file_path(tool_input):
+                return
             self._submit(
                 [
                     (
@@ -258,6 +294,40 @@ class OpenCodeWatcher:
         for key, seen_at in list(self._seen.items()):
             if seen_at < cutoff:
                 del self._seen[key]
+
+
+def _is_edit_tool(name: str) -> bool:
+    return name.lower() in EDIT_TOOL_NAMES
+
+
+def _has_file_path(tool_input: dict[str, Any]) -> bool:
+    return any(
+        isinstance(tool_input.get(key), str) and tool_input[key].strip()
+        for key in FILE_PATH_KEYS
+    )
+
+
+def _with_metadata_path(
+    tool_input: dict[str, Any], state: dict[str, Any]
+) -> dict[str, Any]:
+    """Use OpenCode's completed file list when the input only has edit text."""
+
+    if _has_file_path(tool_input):
+        return tool_input
+    metadata = state.get("metadata")
+    files = metadata.get("files") if isinstance(metadata, dict) else None
+    if not isinstance(files, list):
+        return tool_input
+    for item in files:
+        if not isinstance(item, dict):
+            continue
+        for key in ("file", "path", "filename"):
+            value = item.get(key)
+            if isinstance(value, str) and value.strip():
+                enriched = dict(tool_input)
+                enriched["path"] = value.strip()
+                return enriched
+    return tool_input
 
 
 def accessible(db_path: Path | None = None) -> bool:

@@ -65,6 +65,11 @@ RUN_COMMAND = re.compile(
     r"(?:^|[\s;&|])(?:python|python3|node|deno|bun|uv run|npm run|pnpm run|"
     r"yarn run|go run|cargo run|make)\b"
 )
+PATCH_TARGET = re.compile(
+    r"^\s*(?:\*\*\* (?:Update|Add|Delete) File:|Index:)\s*(.+?)\s*$",
+    re.MULTILINE,
+)
+PATCH_PLUS = re.compile(r"^\s*\+\+\+ b/(.+?)\s*$", re.MULTILINE)
 
 
 @dataclass(slots=True)
@@ -131,8 +136,8 @@ def select_excerpt(
 ) -> str:
     """Pick complete sentences, capped by words and sentence count.
 
-    ``max_sentences=0`` keeps every sentence that fits within ``max_words``,
-    which reads the whole thought for normal-length reasoning.
+    ``max_sentences=0`` removes the sentence-count limit; ``max_words`` still
+    caps the total length.
     """
 
     cleaned = clean_for_speech(text)
@@ -190,15 +195,17 @@ def describe_tool(name: str, tool_input: dict[str, Any] | None = None) -> str:
     if key in {
         "edit",
         "edit_file",
-        "write",
-        "write_file",
         "multiedit",
         "replace",
         "search_replace",
         "apply_patch",
-        "delete_file",
+        "patch",
     }:
         return f"updating {file_name}" if file_name else "editing the files"
+    if key in {"write", "write_file"}:
+        return f"writing {file_name}" if file_name else "writing a file"
+    if key == "delete_file":
+        return f"deleting {file_name}" if file_name else "deleting a file"
     if key in {"notebookedit", "edit_notebook"}:
         return "updating the notebook"
     if key in {"grep", "grep_search", "ripgrep", "codebase_search"}:
@@ -395,7 +402,8 @@ def _word_count(text: str) -> int:
 
 
 def _basename(path: str) -> str:
-    name = Path(path.rstrip(".,;:)")).name
+    value = path.strip().strip("\"'").rstrip(".,;:)")
+    name = Path(value).name
     return name or "the file"
 
 
@@ -435,19 +443,62 @@ def _clean_quoted(value: str) -> str:
     return WHITESPACE.sub(" ", value).strip()[:36]
 
 
-def _tool_file(tool_input: dict[str, Any]) -> str:
+def _tool_file(tool_input: dict[str, Any], depth: int = 0) -> str:
+    if depth > 3 or not isinstance(tool_input, dict):
+        return ""
     for key in (
         "file_path",
         "filePath",
+        "filepath",
         "path",
         "notebook_path",
         "file",
+        "filename",
+        "file_name",
+        "target_file",
         "targetFile",
         "relativePath",
+        "absolute_path",
     ):
         value = tool_input.get(key)
         if isinstance(value, str) and value.strip():
             return _basename(value)
+
+    # Tool inputs vary: patches can be strings, and some agents nest the
+    # interesting fields under input/args/state/metadata.
+    for key in ("input", "args", "arguments", "state", "metadata", "patch", "diff"):
+        value = tool_input.get(key)
+        if isinstance(value, dict):
+            name = _tool_file(value, depth + 1)
+        elif isinstance(value, str):
+            name = _patch_file(value)
+        else:
+            name = ""
+        if name:
+            return name
+
+    files = tool_input.get("files")
+    if isinstance(files, list):
+        for item in files:
+            if isinstance(item, dict):
+                name = _tool_file(item, depth + 1)
+                if name:
+                    return name
+
+    for key in ("content", "new_string", "newString"):
+        value = tool_input.get(key)
+        if isinstance(value, str):
+            name = _patch_file(value)
+            if name:
+                return name
+    return ""
+
+
+def _patch_file(text: str) -> str:
+    for pattern in (PATCH_TARGET, PATCH_PLUS):
+        match = pattern.search(text)
+        if match:
+            return _basename(match.group(1))
     return ""
 
 
