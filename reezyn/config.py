@@ -59,6 +59,14 @@ class NarrationConfig:
 
 
 @dataclass(slots=True)
+class BanterConfig:
+    enabled: bool = True
+    after_s: float = 30.0  # silence before the first line
+    repeat_s: float = 75.0  # silence between later lines
+    max_lines: int = 2  # per stretch of agent activity; 0 is silent
+
+
+@dataclass(slots=True)
 class AmbienceConfig:
     enabled: bool = False
     volume: float = 0.35
@@ -78,6 +86,7 @@ class AgentsConfig:
 class Config:
     speech: SpeechConfig = field(default_factory=SpeechConfig)
     narration: NarrationConfig = field(default_factory=NarrationConfig)
+    banter: BanterConfig = field(default_factory=BanterConfig)
     ambience: AmbienceConfig = field(default_factory=AmbienceConfig)
     agents: AgentsConfig = field(default_factory=AgentsConfig)
 
@@ -91,6 +100,7 @@ class Config:
     def to_toml(self) -> str:
         s = self.speech
         n = self.narration
+        b = self.banter
         a = self.agents
         m = self.ambience
         return (
@@ -109,6 +119,11 @@ class Config:
             f"min_gap_s = {n.min_gap_s:.2f}\n"
             f"connectors = {str(n.connectors).lower()}\n"
             f"dedupe_s = {n.dedupe_s:.1f}\n\n"
+            "[banter]\n"
+            f"enabled = {str(b.enabled).lower()}\n"
+            f"after_s = {b.after_s:.1f}\n"
+            f"repeat_s = {b.repeat_s:.1f}\n"
+            f"max_lines = {b.max_lines}\n\n"
             "[agents]\n"
             f"claude = {str(a.claude).lower()}\n"
             f"codex = {str(a.codex).lower()}\n"
@@ -142,6 +157,7 @@ def load_config(home: Path | None = None) -> Config:
 
     speech = _section(raw, "speech")
     narration = _section(raw, "narration")
+    banter = _section(raw, "banter")
     ambience = _section(raw, "ambience")
     agents = _section(raw, "agents")
 
@@ -162,6 +178,12 @@ def load_config(home: Path | None = None) -> Config:
             min_gap_s=_clamp_float(narration.get("min_gap_s"), 0, 4, 0.35),
             connectors=_bool(narration.get("connectors"), True),
             dedupe_s=_clamp_float(narration.get("dedupe_s"), 1, 300, 30),
+        ),
+        banter=BanterConfig(
+            enabled=_bool(banter.get("enabled"), True),
+            after_s=_clamp_float(banter.get("after_s"), 8, 300, 30.0),
+            repeat_s=_clamp_float(banter.get("repeat_s"), 20, 600, 75.0),
+            max_lines=int(_clamp_float(banter.get("max_lines"), 0, 5, 2)),
         ),
         ambience=AmbienceConfig(
             enabled=_bool(ambience.get("enabled"), False),

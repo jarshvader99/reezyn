@@ -178,6 +178,8 @@ call instead.
 - **Pace** — Calm (0.84×), Natural (0.94×), Brisk (1.04×).
 - **Presence bed** — generated room tone with Off, Whisper, Soft, and Clear
   levels; ducks while narration plays.
+- **Lull banter** — a short line when a tool call runs long, so a quiet stretch
+  never feels stalled. On by default; the menu switches it off.
 - **Install agent hooks** — writes the Claude or Gemini integration after a
   confirmation dialog. Codex, Cursor, OpenCode, and Freebuff are watched
   automatically.
@@ -231,6 +233,20 @@ next time. Set `[ambience] enabled = true` to start with it on. The bed uses
 `sounddevice` like the voice; when speech falls back to `afplay`, the two
 streams cannot be mixed and the bed stays silent.
 
+## Lull banter
+
+Long tool calls produce no reasoning to narrate. Once the agent has gone quiet
+for 30 seconds, Reezyn fills the gap with one short, calm line — "Still here.
+Letting this one run." If the silence continues it offers a second line a
+minute or so later, then stops until fresh activity arrives. A new agent event
+resets the count, so the banter tracks the real rhythm of the session instead
+of talking to an idle laptop.
+
+These lines are Reezyn's own presence, not invented agent thoughts: they never
+claim to know what the agent is doing, only that it is still working. Every
+language pack carries its own set, so banter follows the selected voice.
+Toggle **Lull banter** in the menu, or set `[banter] enabled = false`.
+
 ## Configuration
 
 Reezyn creates `~/.reezyn/config.toml`:
@@ -251,6 +267,12 @@ min_gap_s = 0.35
 connectors = true       # occasional "Okay," / "Right," / "So,"
 dedupe_s = 30.0
 
+[banter]
+enabled = true
+after_s = 30.0          # silence before the first line
+repeat_s = 75.0         # silence between later lines
+max_lines = 2           # per stretch of activity; 0 is silent
+
 [agents]
 claude = true
 codex = true
@@ -264,8 +286,8 @@ enabled = false
 volume = 0.35           # 0..1; Whisper .15, Soft .35, Clear .55
 ```
 
-The menu writes voice, pace, and presence-bed changes back here. Other edits take effect when
-the app restarts.
+The menu writes voice, pace, presence-bed, and banter changes back here. Other
+edits take effect when the app restarts.
 
 `REEZYN_HOME` moves all Reezyn state (config, models, spool, logs). Set it in
 the environment of both the menu app and the agent that runs the hook.

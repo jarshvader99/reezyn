@@ -7,11 +7,13 @@ from pathlib import Path
 from reezyn.config import (
     AgentsConfig,
     AmbienceConfig,
+    BanterConfig,
     Config,
     NarrationConfig,
     SpeechConfig,
     load_config,
 )
+from reezyn.languages import DEFAULT_PACK
 from reezyn.events import Event
 from reezyn.runtime import is_running
 from reezyn.service import ReezynService
@@ -201,6 +203,76 @@ def test_service_selects_a_presence_level(tmp_path, monkeypatch):
         assert service.set_ambience_level(0.35) is False
         assert service.config.ambience.enabled is False
         assert service.status().ambience is False
+    finally:
+        service.stop()
+
+
+def test_service_fills_a_lull_with_banter(tmp_path):
+    home = tmp_path / "state"
+    config = Config(
+        speech=SpeechConfig(),
+        narration=NarrationConfig(
+            debounce_ms=20,
+            stale_after_s=5,
+            min_gap_s=0,
+            connectors=False,
+        ),
+        banter=BanterConfig(after_s=0.08, repeat_s=0.08, max_lines=1),
+        agents=AgentsConfig(
+            claude=False,
+            codex=False,
+            gemini=False,
+            cursor=False,
+            opencode=False,
+            freebuff=False,
+        ),
+    )
+    speaker = FakeSpeaker()
+    service = ReezynService(config, home, speaker=speaker)
+    service.start()
+    try:
+        Spool(home).emit(
+            "generic",
+            Event(
+                agent="test",
+                kind="reasoning",
+                text="I'll check the auth tests.",
+            ).to_dict(),
+        )
+        deadline = time.time() + 3
+        while len(speaker.spoken) < 2 and time.time() < deadline:
+            time.sleep(0.05)
+        assert speaker.spoken[0] == "I'll check the auth tests."
+        assert speaker.spoken[1] in DEFAULT_PACK.banter
+        assert len(speaker.spoken) == 2
+        assert service.status().recent == ["I'll check the auth tests."]
+    finally:
+        service.stop()
+
+
+def test_service_switches_lull_banter_off_and_on(tmp_path):
+    home = tmp_path / "state"
+    config = Config(
+        narration=NarrationConfig(connectors=False),
+        agents=AgentsConfig(
+            claude=False,
+            codex=False,
+            gemini=False,
+            cursor=False,
+            opencode=False,
+            freebuff=False,
+        ),
+    )
+    service = ReezynService(config, home, speaker=FakeSpeaker())
+    service.start()
+    try:
+        service.set_banter(False)
+        assert service.config.banter.enabled is False
+        assert load_config(home).banter.enabled is False
+
+        service.set_banter(True)
+        assert service.config.banter.enabled is True
+        assert load_config(home).banter.enabled is True
     finally:
         service.stop()
 

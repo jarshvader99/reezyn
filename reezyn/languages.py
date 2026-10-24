@@ -27,6 +27,7 @@ class LanguagePack:
     sentence_split: re.Pattern[str]
     word: re.Pattern[str]
     phrases: dict[str, str]
+    banter: tuple[str, ...]
     link_word: str
     and_word: str
     arrow_word: str
@@ -193,6 +194,14 @@ ENGLISH = LanguagePack(
     sentence_split=re.compile(r"(?<=[.!?])\s+"),
     word=re.compile(r"[A-Za-z0-9']+"),
     phrases=ENGLISH_PHRASES,
+    banter=(
+        "Still working. These longer steps can take a minute.",
+        "No news yet. I'm listening for the next one.",
+        "Quiet stretch. A long tool call usually means a lot is happening.",
+        "Still here. Letting this one run.",
+        "Nothing to report yet, which is often a good sign.",
+        "Taking a while. I'll keep the room calm until it lands.",
+    ),
     link_word="a link",
     and_word=" and ",
     arrow_word=" to ",
@@ -221,6 +230,14 @@ SPANISH = LanguagePack(
     sentence_split=re.compile(r"(?<=[.!?…])\s+"),
     word=re.compile(r"[^\W_]+"),
     phrases=SPANISH_PHRASES,
+    banter=(
+        "Sigue trabajando. Estos pasos largos a veces tardan un minuto.",
+        "Todavía no hay novedades. Sigo escuchando.",
+        "Un rato de silencio. Una llamada larga suele significar que pasa mucho.",
+        "Aquí sigo. Dejo que termine.",
+        "Nada que contar por ahora, y eso suele ser buena señal.",
+        "Está tardando. Mantengo el ambiente tranquilo hasta que llegue.",
+    ),
     link_word="un enlace",
     and_word=" y ",
     arrow_word=" a ",
@@ -247,6 +264,14 @@ FRENCH = LanguagePack(
     sentence_split=re.compile(r"(?<=[.!?…])\s+"),
     word=re.compile(r"[^\W_]+(?:['’][^\W_]+)*"),
     phrases=FRENCH_PHRASES,
+    banter=(
+        "Ça travaille toujours. Ces étapes peuvent prendre un moment.",
+        "Pas de nouvelles pour l'instant. Je reste à l'écoute.",
+        "Un moment de calme. Un appel long veut souvent dire qu'il se passe beaucoup de choses.",
+        "Je suis toujours là. Je laisse tourner.",
+        "Rien à signaler pour l'instant, et c'est souvent bon signe.",
+        "Ça prend un peu de temps. Je garde l'ambiance tranquille.",
+    ),
     link_word="un lien",
     and_word=" et ",
     arrow_word=" vers ",

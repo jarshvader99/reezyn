@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .config import NarrationConfig
+from .config import BanterConfig, NarrationConfig
 from .events import Event
 from .languages import DEFAULT_PACK, LanguagePack
 
@@ -524,8 +524,10 @@ class Narrator:
         on_spoken: Callable[[str], None] | None = None,
         on_speaking: Callable[[bool], None] | None = None,
         pack: LanguagePack = DEFAULT_PACK,
+        banter: BanterConfig | None = None,
     ) -> None:
         self._speak = speak
+        self._banter = banter or BanterConfig()
         self._stop_speech = stop_speech or (lambda: None)
         self._config = config
         self._pack = pack
@@ -547,6 +549,10 @@ class Narrator:
         self._last_error = ""
         self._error_until = 0.0
         self._cancel_current = False
+        self._last_activity = 0.0
+        self._last_banter = 0.0
+        self._banter_count = 0
+        self._banter_index = 0
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -566,6 +572,14 @@ class Narrator:
         with self._lock:
             self._pack = pack
 
+    def reset_banter(self) -> None:
+        """Start a fresh lull count, e.g. after the feature is switched on."""
+
+        with self._lock:
+            self._banter_count = 0
+            self._last_banter = 0.0
+            self._last_activity = time.monotonic()
+
     def submit(self, event: Event) -> None:
         now = time.monotonic()
         with self._lock:
@@ -577,6 +591,8 @@ class Narrator:
             self._seen[event.fingerprint] = now
             self._pending.append(event)
             self._last_submit = now
+            self._last_activity = now
+            self._banter_count = 0
         self._wake.set()
         self._notify()
 
@@ -596,6 +612,9 @@ class Narrator:
                 return
             self._paused = False
             self._cancel_current = False
+            self._last_activity = time.monotonic()
+            self._banter_count = 0
+            self._last_banter = 0.0
         self._wake.set()
         self._notify()
 
@@ -610,6 +629,8 @@ class Narrator:
         with self._lock:
             self._pending.clear()
             self._cancel_current = self._speaking
+            self._banter_count = 0
+            self._last_banter = 0.0
         self._stop_speech()
         self._notify()
 
@@ -648,9 +669,32 @@ class Narrator:
                 return "error"
             return "listening"
 
+    def _due_banter(self) -> str:
+        """A line for a long silence between agent events, or an empty string."""
+
+        config = self._banter
+        with self._lock:
+            if not config.enabled or self._paused or self._speaking or self._pending:
+                return ""
+            if self._last_activity <= 0 or self._banter_count >= config.max_lines:
+                return ""
+            idle = time.monotonic() - (self._last_banter or self._last_activity)
+            wait = config.after_s if self._banter_count == 0 else config.repeat_s
+            if idle < wait:
+                return ""
+            lines = self._pack.banter
+            if not lines:
+                return ""
+            line = lines[self._banter_index % len(lines)]
+            self._banter_index += 1
+            self._banter_count += 1
+            return line
+
     def _run(self) -> None:
         while not self._stop.is_set():
             events: list[Event] | None = None
+            narration: Narration | None = None
+            banter = False
             with self._lock:
                 if not self._paused and not self._speaking and self._pending:
                     now = time.monotonic()
@@ -659,15 +703,21 @@ class Narrator:
                         self._pending = []
                         self._speaking = True
             if events is None:
-                self._wake.wait(0.08)
-                self._wake.clear()
-                continue
-
-            narration = compose_narration(events, self._config, pack=self._pack)
-            if not narration:
+                line = self._due_banter()
+                if not line:
+                    self._wake.wait(0.08)
+                    self._wake.clear()
+                    continue
+                narration = Narration(text=line, fingerprint="banter")
+                banter = True
                 with self._lock:
-                    self._speaking = False
-                continue
+                    self._speaking = True
+            else:
+                narration = compose_narration(events, self._config, pack=self._pack)
+                if not narration:
+                    with self._lock:
+                        self._speaking = False
+                    continue
 
             with self._lock:
                 self._current = narration.text
@@ -703,10 +753,13 @@ class Narrator:
                 self._last_finish = time.monotonic()
                 self._cancel_current = False
                 if ok:
-                    self._recent.appendleft(narration.text)
+                    if banter:
+                        self._last_banter = time.monotonic()
+                    else:
+                        self._recent.appendleft(narration.text)
                     self._last_error = ""
                     self._error_until = 0
-            if ok and self._on_spoken:
+            if ok and not banter and self._on_spoken:
                 try:
                     self._on_spoken(narration.text)
                 except Exception:

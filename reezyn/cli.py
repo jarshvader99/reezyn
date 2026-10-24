@@ -370,6 +370,14 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         + ("on" if config.ambience.enabled else "off")
         + f" at {config.ambience.volume:.2f}"
     )
+    print(
+        "  Lull banter  "
+        + (
+            f"on after {config.banter.after_s:.0f}s, {config.banter.max_lines} line(s)"
+            if config.banter.enabled
+            else "off"
+        )
+    )
     print(f"  Spool        {spool_count} pending event(s)")
     if not paths.ready:
         print("\nRun `reezyn setup` to install the voice model.")

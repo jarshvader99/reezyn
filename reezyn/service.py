@@ -77,6 +77,7 @@ class ReezynService:
             on_change=self._changed,
             on_speaking=self._on_speaking,
             pack=pack_for_voice(config.speech.voice),
+            banter=config.banter,
         )
 
         sources = {"generic"}
@@ -196,6 +197,13 @@ class ReezynService:
 
     def toggle_ambience(self) -> bool:
         return self.set_ambience(not self.ambience.running)
+
+    def set_banter(self, enabled: bool) -> None:
+        self.config.banter.enabled = enabled
+        if enabled:
+            self.narrator.reset_banter()
+        self.config.save(self.home)
+        self._changed()
 
     def set_speed(self, speed: float) -> None:
         self.config = with_speed(self.config, speed)

@@ -95,6 +95,35 @@ def test_ambience_config_round_trip(tmp_path):
     assert loaded.ambience.volume == 0.3
 
 
+def test_banter_defaults_clamp_and_round_trip(tmp_path):
+    config = load_config(tmp_path)
+    assert config.banter.enabled is True
+    assert (
+        config.banter.after_s,
+        config.banter.repeat_s,
+        config.banter.max_lines,
+    ) == (30.0, 75.0, 2)
+
+    (tmp_path / "config.toml").write_text(
+        "[banter]\n"
+        "enabled = false\n"
+        "after_s = 1\n"
+        "repeat_s = 900\n"
+        "max_lines = 99\n"
+    )
+    loaded = load_config(tmp_path)
+    assert loaded.banter.enabled is False
+    assert loaded.banter.after_s == 8
+    assert loaded.banter.repeat_s == 600
+    assert loaded.banter.max_lines == 5
+
+    loaded.banter.enabled = True
+    loaded.save(tmp_path)
+    again = load_config(tmp_path)
+    assert again.banter.enabled is True
+    assert again.banter.after_s == 8
+
+
 def test_invalid_toml_falls_back_to_defaults(tmp_path):
     (tmp_path / "config.toml").write_text("this is not toml [[[")
     assert isinstance(load_config(tmp_path), Config)

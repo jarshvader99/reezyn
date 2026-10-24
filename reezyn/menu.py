@@ -94,6 +94,8 @@ class ReezynMenuApp(rumps.App):
             self.ambience_items[level_label] = item
             self.ambience_menu.add(item)
 
+        self.banter_item = rumps.MenuItem("Lull banter", callback=self._toggle_banter)
+
         hooks_menu = rumps.MenuItem("Install agent hooks")
         hooks_menu.add(rumps.MenuItem("Claude Code…", callback=self._install_claude))
         hooks_menu.add(rumps.MenuItem("Gemini CLI…", callback=self._install_gemini))
@@ -125,6 +127,7 @@ class ReezynMenuApp(rumps.App):
             voice_menu,
             pace_menu,
             self.ambience_menu,
+            self.banter_item,
             rumps.separator,
             hooks_menu,
             self.download_item,
@@ -206,6 +209,7 @@ class ReezynMenuApp(rumps.App):
                 if status.ambience and abs(volume - AMBIENCE_LEVELS[level_label]) < 0.01
                 else 0
             )
+        self.banter_item.state = 1 if self.service.config.banter.enabled else 0
         self.download_item.hidden = status.model_ready
         if status.state != self._last_status:
             self._refresh_recent()
@@ -383,6 +387,11 @@ class ReezynMenuApp(rumps.App):
 
     def _disable_ambience(self, _sender: Any = None) -> None:
         self.service.set_ambience(False)
+        self.config = self.service.config
+        self._tick()
+
+    def _toggle_banter(self, _sender: Any = None) -> None:
+        self.service.set_banter(not self.service.config.banter.enabled)
         self.config = self.service.config
         self._tick()
 

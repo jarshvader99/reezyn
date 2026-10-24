@@ -60,6 +60,14 @@ def test_language_packs_cover_the_same_phrases():
         assert set(pack.phrases) == keys
 
 
+def test_every_pack_has_short_local_banter():
+    for pack in PACKS.values():
+        assert pack.banter
+        assert all(4 <= len(line.split()) <= 20 for line in pack.banter)
+    assert SPANISH.banter[0].startswith("Sigue")
+    assert FRENCH.banter[0].startswith("Ça")
+
+
 def test_describe_tool_speaks_spanish():
     assert describe_tool("Read", {"file_path": "/a/b/session.ts"}, SPANISH) == "leyendo session.ts"
     assert describe_tool("str_replace", {"path": "src/auth.ts"}, SPANISH) == "actualizando auth.ts"

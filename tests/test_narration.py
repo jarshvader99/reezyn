@@ -3,8 +3,9 @@ from __future__ import annotations
 import threading
 import time
 
-from reezyn.config import NarrationConfig
+from reezyn.config import BanterConfig, NarrationConfig
 from reezyn.events import Event
+from reezyn.languages import DEFAULT_PACK, PACKS
 from reezyn.narration import (
     Narrator,
     clean_for_speech,
@@ -231,6 +232,105 @@ def test_narrator_reports_when_speech_starts_and_ends():
             time.sleep(0.02)
         assert spoken
         assert states == [True, False]
+    finally:
+        narrator.stop()
+
+
+def _wait_until(predicate, timeout: float = 2.0) -> bool:
+    deadline = time.time() + timeout
+    while not predicate() and time.time() < deadline:
+        time.sleep(0.02)
+    return predicate()
+
+
+def test_narrator_fills_a_lull_then_stops_at_the_limit():
+    spoken: list[str] = []
+
+    narrator = Narrator(
+        lambda text: spoken.append(text) or True,
+        NarrationConfig(debounce_ms=10, min_gap_s=0, connectors=False),
+        banter=BanterConfig(after_s=0.08, repeat_s=0.08, max_lines=2),
+    )
+    narrator.start()
+    try:
+        narrator.submit(
+            Event(agent="test", kind="reasoning", text="I'll check the auth tests.")
+        )
+        assert _wait_until(lambda: len(spoken) == 3)
+        assert spoken[0] == "I'll check the auth tests."
+        assert all(line in DEFAULT_PACK.banter for line in spoken[1:])
+
+        time.sleep(0.35)
+        assert len(spoken) == 3
+    finally:
+        narrator.stop()
+
+
+def test_narrator_banter_waits_for_activity_and_uses_the_pack():
+    spoken: list[str] = []
+    spanish = PACKS["es"]
+
+    narrator = Narrator(
+        lambda text: spoken.append(text) or True,
+        NarrationConfig(debounce_ms=10, min_gap_s=0, connectors=False),
+        banter=BanterConfig(after_s=0.05, repeat_s=0.05, max_lines=2),
+        pack=spanish,
+    )
+    narrator.start()
+    try:
+        time.sleep(0.25)
+        assert spoken == []
+
+        narrator.submit(
+            Event(agent="test", kind="reasoning", text="Voy a revisar la sesión.")
+        )
+        assert _wait_until(lambda: len(spoken) >= 2)
+        assert spoken[1] in spanish.banter
+    finally:
+        narrator.stop()
+
+
+def test_narrator_banter_resets_when_a_new_event_arrives():
+    spoken: list[str] = []
+
+    narrator = Narrator(
+        lambda text: spoken.append(text) or True,
+        NarrationConfig(debounce_ms=10, min_gap_s=0, connectors=False),
+        banter=BanterConfig(after_s=0.06, repeat_s=0.06, max_lines=1),
+    )
+    narrator.start()
+    try:
+        narrator.submit(
+            Event(agent="test", kind="reasoning", text="I'll check the first thing.")
+        )
+        assert _wait_until(lambda: len(spoken) == 2)
+
+        narrator.submit(
+            Event(agent="test", kind="reasoning", text="I'll check the second thing.")
+        )
+        assert _wait_until(lambda: len(spoken) == 4)
+        assert spoken[2] == "I'll check the second thing."
+        assert spoken[3] in DEFAULT_PACK.banter
+    finally:
+        narrator.stop()
+
+
+def test_narrator_banter_can_be_switched_off():
+    spoken: list[str] = []
+
+    narrator = Narrator(
+        lambda text: spoken.append(text) or True,
+        NarrationConfig(debounce_ms=10, min_gap_s=0, connectors=False),
+        banter=BanterConfig(enabled=False, after_s=0.05, repeat_s=0.05),
+    )
+    narrator.start()
+    try:
+        narrator.submit(
+            Event(agent="test", kind="reasoning", text="I'll check the auth tests.")
+        )
+        assert _wait_until(lambda: len(spoken) == 1)
+        time.sleep(0.3)
+        assert len(spoken) == 1
     finally:
         narrator.stop()
 
