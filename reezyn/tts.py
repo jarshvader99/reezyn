@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import os
 import queue
 import re
@@ -41,11 +42,26 @@ SENTENCE_PAUSE = 0.22
 CLAUSE_PAUSE = 0.08
 CLAUSE_SPLIT = re.compile(r"(?<=[,;:])\s+")
 _PCM_RNG = np.random.default_rng()
+# name, url, and the SHA-256 of the published release asset. The download path
+# refuses anything else: onnxruntime parses these bytes in-process, so an
+# unchecked model is a code path, not just a broken voice.
 MODEL_FILES = {
-    "int8": ("kokoro-v1.0.int8.onnx", f"{RELEASE}/kokoro-v1.0.int8.onnx"),
-    "fp16": ("kokoro-v1.0.fp16.onnx", f"{RELEASE}/kokoro-v1.0.fp16.onnx"),
+    "int8": (
+        "kokoro-v1.0.int8.onnx",
+        f"{RELEASE}/kokoro-v1.0.int8.onnx",
+        "ae315a79b623f244700e4afb9246c46a26066782e049ba174bf3ba433970ee9c",
+    ),
+    "fp16": (
+        "kokoro-v1.0.fp16.onnx",
+        f"{RELEASE}/kokoro-v1.0.fp16.onnx",
+        "f3a290d384fbb27966d462905c71a46cef9e5fd00516b40df32a0b4afe77ac96",
+    ),
 }
-VOICES_FILE = ("voices-v1.0.bin", f"{RELEASE}/voices-v1.0.bin")
+VOICES_FILE = (
+    "voices-v1.0.bin",
+    f"{RELEASE}/voices-v1.0.bin",
+    "bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d",
+)
 USER_AGENT = "reezyn/0.1 (+local speech)"
 
 
@@ -78,10 +94,19 @@ def download_models(
 
     paths = model_paths(home, model)
     paths.model.parent.mkdir(parents=True, exist_ok=True)
-    model_name, model_url = MODEL_FILES.get(model, MODEL_FILES["int8"])
-    _download(model_url, paths.model, model_name, progress)
-    _download(VOICES_FILE[1], paths.voices, VOICES_FILE[0], progress)
+    model_name, model_url, model_sha = MODEL_FILES.get(model, MODEL_FILES["int8"])
+    _download(model_url, paths.model, model_name, progress, model_sha)
+    voices_name, voices_url, voices_sha = VOICES_FILE
+    _download(voices_url, paths.voices, voices_name, progress, voices_sha)
     return paths
+
+
+def _digest(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def _download(
@@ -89,12 +114,19 @@ def _download(
     target: Path,
     label: str,
     progress: Callable[[str, int, int], None] | None,
+    sha256: str,
 ) -> None:
-    if target.is_file() and target.stat().st_size > 1_000_000:
-        if progress:
-            size = target.stat().st_size
-            progress(label, size, size)
-        return
+    """Fetch one model file and accept it only if it is the published asset."""
+
+    if target.is_file():
+        if _digest(target) == sha256:
+            if progress:
+                size = target.stat().st_size
+                progress(label, size, size)
+            return
+        # Wrong bytes on disk (truncated, tampered, or from an older release):
+        # fetch a clean copy rather than loading them.
+        target.unlink(missing_ok=True)
 
     part = target.with_suffix(target.suffix + ".part")
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
@@ -110,6 +142,10 @@ def _download(
                 downloaded += len(chunk)
                 if progress:
                     progress(label, downloaded, total)
+        if _digest(part) != sha256:
+            raise SpeechError(
+                f"{label} did not match its published checksum; nothing was installed"
+            )
         os.replace(part, target)
     except Exception:
         part.unlink(missing_ok=True)

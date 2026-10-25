@@ -16,10 +16,11 @@ from typing import Any
 
 log = logging.getLogger("reezyn")
 
+# Only the notarized app bundle is trusted by path. Command-line installs are
+# reached through PATH as a fallback, so a package-manager directory is never
+# preferred over the app.
 CLI_CANDIDATES = (
     "/Applications/Tailscale.app/Contents/MacOS/Tailscale",
-    "/usr/local/bin/tailscale",
-    "/opt/homebrew/bin/tailscale",
     "/Applications/Tailscale.app/Contents/MacOS/tailscale",
 )
 
@@ -33,13 +34,14 @@ INSTALL_HELP = (
 
 
 def cli() -> str | None:
-    found = shutil.which("tailscale")
-    if found:
-        return found
+    # The installed app bundle first: it is the binary that was notarized with
+    # the same identity as this app. PATH is the fallback for machines that
+    # only have a command-line install, and it is chosen last on purpose, since
+    # a PATH entry is whatever the launching environment says it is.
     for path in CLI_CANDIDATES:
-        if shutil.which(path) or _is_executable(path):
+        if _is_executable(path):
             return path
-    return None
+    return shutil.which("tailscale")
 
 
 def _is_executable(path: str) -> bool:

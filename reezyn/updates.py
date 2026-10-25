@@ -130,6 +130,11 @@ def parse_manifest(payload: Any) -> Update:
 
 
 def fetch_manifest(url: str = UPDATE_FEED, timeout: float = 8.0) -> Update:
+    # The archive URL inside the manifest is required to be https; the feed that
+    # names it has to be held to the same standard, or the version, notes and
+    # URL an installed app acts on arrive unauthenticated.
+    if not url.startswith("https://"):
+        raise UpdateError("update feed URL is not https")
     request = urllib.request.Request(url, headers={"Cache-Control": "no-cache"})
     with urllib.request.urlopen(request, timeout=timeout) as response:
         raw = response.read(1 << 20)

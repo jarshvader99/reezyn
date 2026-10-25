@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from . import __version__
-from .config import app_home, load_config
+from .config import app_home, ensure_home, load_config
 from .events import Event
 from .installers import (
     CLAUDE_HOOK_EVENTS,
@@ -248,7 +248,7 @@ def cmd_ingest(args: argparse.Namespace) -> int:
 def cmd_setup(args: argparse.Namespace) -> int:
     from .tts import download_models
 
-    home = app_home()
+    home = ensure_home(app_home())
     last = 0.0
 
     def progress(label: str, done: int, total: int) -> None:
@@ -658,7 +658,19 @@ def _demo_events() -> list[Event]:
     ]
 
 
+def _private_file(path: Path) -> None:
+    """Make one state file readable only by its owner."""
+
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
+
+
 def _configure_logging(home: Path) -> None:
+    # The log is a rolling transcript of what Reezyn said, so it stays private
+    # even when the process umask is the default 022.
+    ensure_home(home)
     handler = RotatingFileHandler(
         home / "reezyn.log",
         maxBytes=1_000_000,
@@ -671,15 +683,19 @@ def _configure_logging(home: Path) -> None:
     root = logging.getLogger("reezyn")
     root.setLevel(logging.INFO)
     root.addHandler(handler)
+    for path in (home / "reezyn.log", *home.glob("reezyn.log.*")):
+        _private_file(path)
 
 
 def _hook_log(agent: str, message: str) -> None:
     # Hooks must not write to stdout unless the protocol requires it.
     try:
-        home = app_home()
-        home.mkdir(parents=True, exist_ok=True)
-        with (home / "hook-errors.log").open("a", encoding="utf-8") as handle:
+        home = ensure_home()
+        path = home / "hook-errors.log"
+        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+        with os.fdopen(descriptor, "a", encoding="utf-8") as handle:
             handle.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {agent}: {message}\n")
+        _private_file(path)
     except OSError:
         pass
 

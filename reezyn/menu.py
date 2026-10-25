@@ -22,6 +22,7 @@ from .config import (
     SPEEDS,
     Config,
     app_home,
+    ensure_home,
     load_config,
 )
 from .languages import LANGUAGES
@@ -1160,7 +1161,7 @@ class ReezynMenuApp(rumps.App):
         self.service.simulate()
 
     def _open_folder(self, _sender: Any = None) -> None:
-        self.home.mkdir(parents=True, exist_ok=True)
+        ensure_home(self.home)
         subprocess.Popen(["open", str(self.home)])
 
     def _about(self, _sender: Any = None) -> None:

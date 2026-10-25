@@ -49,3 +49,33 @@ def test_publishing_reports_the_one_time_enable_link(monkeypatch):
     assert result["url"] == ""
     assert result["setup_url"] == "https://login.tailscale.com/f/serve?node=abc123"
     assert "Serve is not enabled" in result["reason"]
+
+
+def test_the_installed_app_binary_wins_over_path(monkeypatch, tmp_path):
+    pinned = tmp_path / "Tailscale.app" / "Tailscale"
+    pinned.parent.mkdir()
+    pinned.write_text("#!/bin/sh\n", encoding="utf-8")
+    pinned.chmod(0o755)
+
+    planted = tmp_path / "path-bin" / "tailscale"
+    planted.parent.mkdir()
+    planted.write_text("#!/bin/sh\necho planted\n", encoding="utf-8")
+    planted.chmod(0o755)
+
+    monkeypatch.setattr(tailscale, "CLI_CANDIDATES", (str(pinned),))
+    monkeypatch.setenv("PATH", str(planted.parent))
+
+    assert tailscale.cli() == str(pinned)
+
+
+def test_path_is_only_the_fallback(monkeypatch, tmp_path):
+    missing = tmp_path / "not-installed" / "Tailscale"
+    planted = tmp_path / "path-bin" / "tailscale"
+    planted.parent.mkdir()
+    planted.write_text("#!/bin/sh\n", encoding="utf-8")
+    planted.chmod(0o755)
+
+    monkeypatch.setattr(tailscale, "CLI_CANDIDATES", (str(missing),))
+    monkeypatch.setenv("PATH", str(planted.parent))
+
+    assert tailscale.cli() == str(planted)

@@ -17,7 +17,11 @@ import threading
 import time
 from pathlib import Path
 
-SERVER = ["npx", "-y", "--package=@hostinger/mcp@latest", "hostinger-hosting-mcp"]
+# Pinned on purpose: this runs during a release, on the machine that just used
+# the Developer ID identity and the notarization profile. A floating tag would
+# let a registry-side publish decide what executes there.
+MCP_VERSION = "3.8.1"
+SERVER = ["npx", "-y", f"--package=@hostinger/mcp@{MCP_VERSION}", "hostinger-hosting-mcp"]
 
 
 class McpError(RuntimeError):

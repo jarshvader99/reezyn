@@ -63,6 +63,23 @@ def app_home() -> Path:
     return Path.home() / ".reezyn"
 
 
+def ensure_home(home: Path | None = None) -> Path:
+    """Create the state directory owner-only, and repair one made earlier.
+
+    This directory holds narration history and the per-project ledger, so its
+    confidentiality must not depend on the umask that happened to be in effect
+    the first time the app ran.
+    """
+
+    home = home or app_home()
+    home.mkdir(parents=True, exist_ok=True, mode=0o700)
+    try:
+        os.chmod(home, 0o700)
+    except OSError:
+        pass
+    return home
+
+
 @dataclass(slots=True)
 class SpeechConfig:
     voice: str = DEFAULT_VOICE
@@ -185,8 +202,7 @@ class Config:
     updates: UpdatesConfig = field(default_factory=UpdatesConfig)
 
     def save(self, home: Path | None = None) -> Path:
-        home = home or app_home()
-        home.mkdir(parents=True, exist_ok=True)
+        home = ensure_home(home)
         path = home / "config.toml"
         path.write_text(self.to_toml(), encoding="utf-8")
         return path

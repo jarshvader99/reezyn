@@ -285,3 +285,10 @@ def test_install_verifies_then_schedules_the_swap(tmp_path, monkeypatch):
     assert helper.exists() and helper.name == "swap.sh"
     assert "Reezyn.app" in helper.read_text()
     assert calls[-1].startswith("/bin/sh ")
+
+
+def test_the_feed_itself_must_be_https():
+    """The manifest names the archive; it has to arrive over TLS too."""
+
+    with pytest.raises(UpdateError):
+        updates.fetch_manifest("http://reezyn.elastikmind.com/updates/latest.json")
