@@ -1,6 +1,6 @@
 [project]
 name = "reezyn"
-version = "0.2.2"
+version = "0.2.3"
 description = "A calm, local narrator for coding-agent reasoning."
 readme = "README.md"
 requires-python = ">=3.11,<3.14"

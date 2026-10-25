@@ -1,12 +1,14 @@
 {
-  "version": "0.2.2",
+  "version": "0.2.3",
   "channel": "stable",
   "min_macos": "13.0",
-  "published_at": "2026-10-25T06:53:04Z",
-  "url": "https://reezyn.elastikmind.com/updates/Reezyn-0.2.2.zip",
-  "sha256": "3349645c71ad1626d606b0c279ca1e13dd9a0d1219c95731130433c5fbb67e61",
-  "size": 50286692,
+  "published_at": "2026-10-25T13:17:58Z",
+  "url": "https://reezyn.elastikmind.com/updates/Reezyn-0.2.3.zip",
+  "sha256": "6cc672840117c2c283dda87c0e45a6eb13607c63d494adc4dcc477fa27793ba8",
+  "size": 50288548,
   "notes": [
-    "chore: revalidate the update manifest"
+    "fix: keep narration private and pin what the app trusts",
+    "Add security audit skill and validation tests",
+    "build: make releases resumable and survive a stalled notarization"
   ]
 }
