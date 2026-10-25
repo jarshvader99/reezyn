@@ -134,7 +134,7 @@ def test_a_prompt_spools_into_a_recall_line(tmp_path):
             ),
             session_id="earlier",
             project=project,
-            ts=time.time() - 3600,
+            ts=_an_hour_ago_today(),
         )
     )
     service.start()
@@ -437,6 +437,19 @@ def _voice_service(tmp_path, *, conversation: bool = True):
     voice = FakeVoice()
     service.voice = voice
     return service, voice, speaker
+
+
+def _an_hour_ago_today() -> float:
+    """An hour before now, clamped to today.
+
+    Inside the first hour after local midnight a plain hour ago is yesterday,
+    and the narrator rightly says "On a previous day". This test is about the
+    recall line, not the calendar, so the moment stays inside today.
+    """
+
+    now = time.time()
+    midnight = time.mktime(time.localtime(now)[:3] + (0, 0, 0, 0, 0, -1))
+    return max(now - 3600, midnight)
 
 
 def _wait_for(predicate, timeout: float = 3.0) -> bool:
