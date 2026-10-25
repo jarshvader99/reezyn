@@ -80,7 +80,21 @@ fi
 SHA="$(uv run python packaging/release_version.py stamp "$VERSION" "$DMG")"
 echo "==> stamped site download: $(basename "$DMG") ($SHA)"
 
-git add pyproject.toml uv.lock reezyn/__init__.py site/index.html
+ZIP="dist/Reezyn-$VERSION.zip"
+NOTES="$(mktemp -t reezyn-notes)"
+trap 'rm -f "$BUILD_LOG" "$NOTES"' EXIT
+echo "==> Packaging the app for updates"
+ditto -c -k --keepParent "dist/Reezyn.app" "$ZIP"
+LAST_TAG="$(git describe --tags --abbrev=0 2>/dev/null || true)"
+if [[ -n "$LAST_TAG" ]]; then
+  git log --pretty='%s' "$LAST_TAG"..HEAD > "$NOTES"
+else
+  git log -20 --pretty='%s' > "$NOTES"
+fi
+uv run python packaging/release_version.py feed "$VERSION" "$ZIP" "$NOTES" >/dev/null
+echo "==> published updates/latest.json for $VERSION"
+
+git add pyproject.toml uv.lock reezyn/__init__.py site/index.html site/updates/latest.json
 git commit -q -m "release: Reezyn $VERSION"
 echo "==> committed $(git rev-parse --short HEAD)"
 

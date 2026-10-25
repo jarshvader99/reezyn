@@ -5,17 +5,21 @@ Three small commands, so the shell script stays readable:
     release_version.py next  <current> <patch|minor|major|X.Y.Z>
     release_version.py apply <version>
     release_version.py stamp <version> <dmg>
+    release_version.py feed  <version> <zip> [notes.txt]
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import shutil
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+SITE_URL = "https://reezyn.elastikmind.com"
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
 DMG_LINK = re.compile(r"downloads/Reezyn-\d+\.\d+\.\d+\.dmg")
 CHECKSUM = re.compile(r"(<code>)[0-9a-f]{64}(</code>)")
@@ -78,6 +82,32 @@ def stamp_download(version: str, dmg: Path) -> str:
     return digest
 
 
+def write_feed(version: str, archive: Path, notes: list[str]) -> Path:
+    """Publish the update manifest the installed app reads."""
+
+    updates = ROOT / "site" / "updates"
+    updates.mkdir(parents=True, exist_ok=True)
+    target = updates / f"Reezyn-{version}.zip"
+    for old in updates.glob("Reezyn-*.zip"):
+        if old != target:
+            old.unlink()
+    shutil.copy2(archive, target)
+
+    manifest = {
+        "version": version,
+        "channel": "stable",
+        "min_macos": "13.0",
+        "published_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "url": f"{SITE_URL}/updates/{target.name}",
+        "sha256": hashlib.sha256(target.read_bytes()).hexdigest(),
+        "size": target.stat().st_size,
+        "notes": [note.strip() for note in notes if note.strip()],
+    }
+    path = updates / "latest.json"
+    path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
 def main(argv: list[str]) -> int:
     if len(argv) < 2:
         raise SystemExit(__doc__)
@@ -95,6 +125,15 @@ def main(argv: list[str]) -> int:
         if not dmg.is_file():
             raise SystemExit(f"no DMG at {dmg}")
         print(stamp_download(argv[2], dmg))
+        return 0
+    if command == "feed" and len(argv) in (4, 5):
+        archive = Path(argv[3]).resolve()
+        if not archive.is_file():
+            raise SystemExit(f"no archive at {archive}")
+        notes: list[str] = []
+        if len(argv) == 5:
+            notes = Path(argv[4]).read_text(encoding="utf-8").splitlines()
+        print(write_feed(argv[2], archive, notes))
         return 0
     raise SystemExit(__doc__)
 

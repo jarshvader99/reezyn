@@ -26,9 +26,17 @@ The script refuses to run on a dirty tree, then:
 4. copies the DMG into `site/downloads/`, removes the previous one, and stamps the
    new SHA-256 and size into the page. That folder is git-ignored and the deploy
    uploads it, so the build never enters the repository;
+5. packages `Reezyn.app` as `dist/Reezyn-<version>.zip` and writes
+   `site/updates/latest.json` — version, zip URL, SHA-256, size, minimum macOS
+   and the commit subjects since the last tag — which is what installed apps
+   poll for updates;
 5. commits the release;
 6. deploys `site/` to `reezyn.elastikmind.com` through the Hostinger hosting MCP
    server, which authenticates through the Hostinger extension.
+
+The manifest and the zip must be published together: an app that sees a version
+newer than itself will download exactly the URL and checksum that manifest
+names, and refuses anything that does not match.
 
 Flags: `--no-deploy` stops before step 6, `--no-notarize` signs only, and
 `--skip-tests` skips step 2.

@@ -57,6 +57,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_recall(args)
     if command == "voice":
         return cmd_voice(args)
+    if command == "update":
+        return cmd_update(args)
     if command == "version":
         print(__version__)
         return 0
@@ -121,6 +123,11 @@ def build_parser() -> argparse.ArgumentParser:
     voice.add_argument("--enable", action="store_true", help="Turn voice input on")
     voice.add_argument("--disable", action="store_true", help="Turn voice input off")
     voice.add_argument("--json", action="store_true", help="Print machine-readable status")
+
+    update = sub.add_parser("update", help="Check for and install a newer Reezyn")
+    update.add_argument("--check", action="store_true", help="Only report")
+    update.add_argument("--yes", action="store_true", help="Install without asking")
+    update.add_argument("--channel", choices=["stable", "beta"], default=None)
 
     sub.add_parser("version", help="Print the version")
     return parser
@@ -493,6 +500,43 @@ def cmd_recall(args: argparse.Namespace) -> int:
         stamp = time.strftime("%Y-%m-%d %H:%M", time.localtime(entry.ts))
         label = labels.get(entry.role, entry.role)
         print(f"{stamp}  {label}: {_clip(entry.text, 220)}")
+    return 0
+
+
+def cmd_update(args: argparse.Namespace) -> int:
+    from .updates import check_for_update, install, installed_app_path, notes_text
+
+    home = app_home()
+    config = load_config(home)
+    channel = args.channel or config.updates.channel
+    update = check_for_update(
+        home=home,
+        feed_url=config.updates.feed_url,
+        channel=channel,
+        force=True,
+    )
+    if update is None:
+        print(f"Reezyn {__version__} is up to date.")
+        return 0
+
+    print(f"Reezyn {update.version} is available; this copy is {__version__}.")
+    print(notes_text(update))
+    if args.check:
+        return 0
+
+    target = installed_app_path()
+    print(f"Install to {target}?")
+    if not args.yes:
+        try:
+            answer = input("Install it now? [y/N] ").strip().lower()
+        except EOFError:
+            answer = ""
+        if answer not in ("y", "yes"):
+            print("Nothing installed.")
+            return 0
+
+    install(update, app_path=target)
+    print("Installing now; Reezyn reopens on the new version once this process exits.")
     return 0
 
 

@@ -46,6 +46,9 @@ CAPTION_FONTS: dict[str, float] = {
 
 CAPTION_OPACITIES: tuple[float, ...] = (0.45, 0.6, 0.75, 0.9, 1.0)
 
+UPDATE_FEED = "https://reezyn.elastikmind.com/updates/latest.json"
+UPDATE_CHANNELS = ("stable", "beta")
+
 
 def app_home() -> Path:
     """Return Reezyn's private state directory.
@@ -151,6 +154,14 @@ class RemoteConfig:
 
 
 @dataclass(slots=True)
+class UpdatesConfig:
+    # A quiet daily check; the app only speaks up when there is something new.
+    check: bool = True
+    channel: str = "stable"
+    feed_url: str = UPDATE_FEED
+
+
+@dataclass(slots=True)
 class AgentsConfig:
     claude: bool = True
     codex: bool = True
@@ -171,6 +182,7 @@ class Config:
     voice: VoiceConfig = field(default_factory=VoiceConfig)
     agents: AgentsConfig = field(default_factory=AgentsConfig)
     remote: RemoteConfig = field(default_factory=RemoteConfig)
+    updates: UpdatesConfig = field(default_factory=UpdatesConfig)
 
     def save(self, home: Path | None = None) -> Path:
         home = home or app_home()
@@ -189,6 +201,7 @@ class Config:
         r = self.recall
         v = self.voice
         remote = self.remote
+        u = self.updates
         return (
             "# Reezyn configuration\n"
             "# Changes here are read when the menu-bar app starts.\n\n"
@@ -257,7 +270,11 @@ class Config:
             f"keep_awake = {str(remote.keep_awake).lower()}\n"
             f"queue_when_locked = {str(remote.queue_when_locked).lower()}\n"
             f"read_aloud = {str(remote.read_aloud).lower()}\n"
-            f"session_days = {remote.session_days}\n"
+            f"session_days = {remote.session_days}\n\n"
+            "[updates]\n"
+            f"check = {str(u.check).lower()}\n"
+            f"channel = {quote(u.channel)}\n"
+            f"feed_url = {quote(u.feed_url)}\n"
         )
 
 
@@ -292,6 +309,7 @@ def load_config(home: Path | None = None) -> Config:
     voice = _section(raw, "voice")
     agents = _section(raw, "agents")
     remote = _section(raw, "remote")
+    updates = _section(raw, "updates")
 
     config = Config(
         speech=SpeechConfig(
@@ -374,6 +392,15 @@ def load_config(home: Path | None = None) -> Config:
             cursor=_bool(agents.get("cursor"), True),
             opencode=_bool(agents.get("opencode"), True),
             freebuff=_bool(agents.get("freebuff"), True),
+        ),
+        updates=UpdatesConfig(
+            check=_bool(updates.get("check"), True),
+            channel=(
+                updates.get("channel")
+                if updates.get("channel") in UPDATE_CHANNELS
+                else "stable"
+            ),
+            feed_url=_text(updates.get("feed_url"), UPDATE_FEED),
         ),
         remote=RemoteConfig(
             enabled=_bool(remote.get("enabled"), False),

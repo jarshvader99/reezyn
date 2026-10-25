@@ -547,6 +547,34 @@ for the tailnet once, then turn remote access off and on. The Serve mapping
 remains after remote access is turned off, pointing at a closed port;
 `tailscale serve reset` removes it if you want it gone.
 
+## Updates
+
+Reezyn checks once a day and only pipes up when a newer build exists. The menu
+item **Check for Updates…** does the same on demand, retitles itself to
+**Update to 0.2.1…** when something is waiting, and a notification appears once
+per version.
+
+An update is installed in place, not re-downloaded by hand: the app fetches
+`updates/latest.json` from the site, downloads the zip it names, refuses it
+unless the bytes match the manifest's SHA-256, and then refuses the bundle
+inside unless `codesign` says it is intact and signed by the same Developer ID
+(`H4G8F4Q8D2`) as the copy already installed. Only then does Reezyn quit, swap
+the bundle, and reopen. If the copy fails, the previous bundle goes back and
+reopens, and the old version stays at `Reezyn.app.previous` until the new one
+is in place.
+
+From a terminal:
+
+```bash
+reezyn update --check     # is there a newer build?
+reezyn update             # install it, after a y/N prompt
+```
+
+Turn the daily check off with `[updates] check = false`, or widen it to preview
+builds with `channel = "beta"`. Builds from before this updater shipped have no
+way to hear about a new version, so they need one manual download; every
+release after that can update itself.
+
 ## Configuration
 
 Reezyn creates `~/.reezyn/config.toml`:
@@ -605,6 +633,11 @@ recap_minutes = 45.0    # default window for Recap the last session
 
 [remote]
 # See Remote access; the menu edits [remote] enabled.
+
+[updates]
+check = true            # a quiet daily check; the app speaks up only when newer
+channel = "stable"      # stable or beta
+feed_url = "https://reezyn.elastikmind.com/updates/latest.json"
 ```
 
 The menu writes voice, pace, presence-bed, banter, recall, and voice-input

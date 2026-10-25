@@ -12,7 +12,7 @@ from typing import Any
 
 import rumps
 
-from . import __version__
+from . import __version__, updates
 from .captions import CaptionOverlay
 from .config import (
     AMBIENCE_LEVELS,
@@ -248,6 +248,16 @@ class ReezynMenuApp(rumps.App):
         self.simulate_item = rumps.MenuItem("Simulate a session", callback=self._simulate)
         self.open_item = rumps.MenuItem("Open Reezyn folder", callback=self._open_folder)
         self.about_item = rumps.MenuItem("About Reezyn", callback=self._about)
+        self.update_item = rumps.MenuItem(
+            "Check for Updates…", callback=self._update_menu_clicked
+        )
+        self._pending_update: updates.Update | None = None
+        self._update_check_running = False
+        self._update_install_running = False
+        self._update_result: tuple[updates.Update | None, bool] | None = None
+        self._install_error = ""
+        self._quit_after_update = False
+        self._notified_version = ""
         self.quit_item = rumps.MenuItem("Quit Reezyn", callback=self._quit)
 
         self.menu = [
@@ -278,6 +288,7 @@ class ReezynMenuApp(rumps.App):
             self.download_item,
             self.simulate_item,
             self.open_item,
+            self.update_item,
             self.about_item,
             rumps.separator,
             self.quit_item,
@@ -290,6 +301,9 @@ class ReezynMenuApp(rumps.App):
         self.service.start()
         timer = rumps.Timer(self._tick, 0.35)
         timer.start()
+        if self.service.config.updates.check:
+            self._update_timer = rumps.Timer(self._update_timer_tick, 900)
+            self._update_timer.start()
         super().run()
 
     def _service_changed(self) -> None:
@@ -298,6 +312,7 @@ class ReezynMenuApp(rumps.App):
         return
 
     def _tick(self, _timer: Any = None) -> None:
+        self._drain_update_state()
         status = self.service.status()
         download = self.service.download_progress
         self._update_icon(status)
@@ -1036,6 +1051,104 @@ class ReezynMenuApp(rumps.App):
             target=self._download_worker, name="reezyn-download", daemon=True
         )
         self._download_thread.start()
+
+    def _drain_update_state(self) -> None:
+        if self._update_result is not None:
+            found, silent = self._update_result
+            self._update_result = None
+            self._update_check_running = False
+            self._apply_update_result(found, silent)
+        if self._install_error:
+            message, self._install_error = self._install_error, ""
+            rumps.alert(title="Update failed", message=message, ok="OK")
+        if self._quit_after_update:
+            self._quit_after_update = False
+            self._quit()
+
+    def _update_menu_clicked(self, _sender: Any = None) -> None:
+        if self._pending_update is not None:
+            self._offer_update(self._pending_update)
+            return
+        if self._update_check_running or self._update_install_running:
+            return
+        self._update_check_running = True
+        self.update_item.title = "Checking for updates…"
+        threading.Thread(target=self._update_check_worker, args=(False,), daemon=True).start()
+
+    def _update_timer_tick(self, _timer: Any = None) -> None:
+        if self._update_check_running or self._update_install_running:
+            return
+        if not updates.due(self.home):
+            return
+        self._update_check_running = True
+        threading.Thread(target=self._update_check_worker, args=(True,), daemon=True).start()
+
+    def _update_check_worker(self, silent: bool) -> None:
+        config = self.service.config.updates
+        try:
+            found = updates.check_for_update(
+                home=self.home,
+                feed_url=config.feed_url,
+                channel=config.channel,
+                force=not silent,
+            )
+        except Exception:
+            log.debug("update check failed", exc_info=True)
+            found = None
+        self._update_result = (found, silent)
+
+    def _apply_update_result(self, found: updates.Update | None, silent: bool) -> None:
+        if found is None:
+            self.update_item.title = "Check for Updates…"
+            if not silent:
+                rumps.alert(
+                    title="Reezyn is up to date",
+                    message=f"Version {__version__} is the newest build.",
+                    ok="OK",
+                )
+            return
+        self._pending_update = found
+        self.update_item.title = f"Update to {found.version}…"
+        if silent and found.version != self._notified_version:
+            self._notified_version = found.version
+            rumps.notification(
+                "Reezyn",
+                f"Version {found.version} is available",
+                "Click the menu-bar item to install it.",
+            )
+
+    def _offer_update(self, update: updates.Update) -> None:
+        answer = rumps.alert(
+            title=f"Reezyn {update.version} is available",
+            message=(
+                f"{updates.notes_text(update)}\n\n"
+                f"This copy is {__version__}. Install over it and reopen?"
+            ),
+            ok="Install",
+            cancel="Later",
+        )
+        if answer == 1:
+            self._start_update_install(update)
+
+    def _start_update_install(self, update: updates.Update) -> None:
+        if self._update_install_running:
+            return
+        self._update_install_running = True
+        self.update_item.set_callback(None)
+        self.update_item.title = f"Installing {update.version}…"
+        threading.Thread(target=self._install_worker, args=(update,), daemon=True).start()
+
+    def _install_worker(self, update: updates.Update) -> None:
+        try:
+            updates.install(update, app_path=updates.installed_app_path())
+        except Exception as exc:
+            log.info("update install failed: %s", exc)
+            self._update_install_running = False
+            self._install_error = str(exc)
+            self.update_item.title = "Check for Updates…"
+            self.update_item.set_callback(self._update_menu_clicked)
+            return
+        self._quit_after_update = True
 
     def _download_worker(self) -> None:
         try:
