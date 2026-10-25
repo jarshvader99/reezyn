@@ -4,8 +4,9 @@
 #   packaging/build_app.sh
 #
 # Outputs dist/Reezyn.app and dist/Reezyn-<version>.dmg, signed with the
-# Developer ID Application identity. Notarization runs when credentials are
-# provided through the environment:
+# Developer ID Application identity. Notarization is delegated to
+# packaging/notarize.sh, which can resume an interrupted submission, and runs
+# when credentials are provided through the environment:
 #
 #   NOTARY_PROFILE      a profile stored with `xcrun notarytool store-credentials`
 #   NOTARY_KEY          an App Store Connect API key (.p8) path
@@ -58,7 +59,30 @@ codesign \
   "$APP"
 codesign --verify --deep --strict --verbose=2 "$APP"
 
+# A build that was killed can leave a diskimages-helper holding one of our
+# artifacts open, and every later hdiutil call then stalls on it. Only helpers
+# with a file open under dist/ or build/ are touched, so unrelated mounted
+# images are left alone.
+release_stale_helpers() {
+  local pid
+  local found
+  found="$(lsof -n -w +D "$PWD/dist" +D "$PWD/build" 2>/dev/null \
+    | awk 'NR > 1 && ($1 == "diskimages-helper" || $1 == "hdiutil") {print $2}' \
+    | sort -u || true)"
+  for pid in $found; do
+    echo "==> Releasing stale disk image helper $pid"
+    kill -TERM "$pid" 2>/dev/null || true
+  done
+  if [[ -n "$found" ]]; then
+    sleep 1
+    for pid in $found; do
+      kill -KILL "$pid" 2>/dev/null || true
+    done
+  fi
+}
+
 echo "==> Building the disk image"
+release_stale_helpers
 STAGE="build/dmg"
 DMG="dist/$APP_NAME-$VERSION.dmg"
 rm -rf "$STAGE" "$DMG"
@@ -72,19 +96,13 @@ hdiutil create \
   -format UDZO \
   "$DMG" >/dev/null
 codesign --force --timestamp --sign "$IDENTITY" "$DMG"
+hdiutil verify "$DMG" >/dev/null
+echo "==> Disk image verified"
 
-if [[ -n "${NOTARY_PROFILE:-}" ]]; then
-  echo "==> Notarizing with keychain profile: $NOTARY_PROFILE"
-  xcrun notarytool submit "$DMG" --keychain-profile "$NOTARY_PROFILE" --wait
-  xcrun stapler staple "$DMG"
-elif [[ -n "${NOTARY_KEY:-}" ]]; then
-  echo "==> Notarizing with API key: $NOTARY_KEY"
-  notary_args=(--key "$NOTARY_KEY" --key-id "${NOTARY_KEY_ID:?set NOTARY_KEY_ID}")
-  if [[ -n "${NOTARY_ISSUER:-}" ]]; then
-    notary_args+=(--issuer "$NOTARY_ISSUER")
-  fi
-  xcrun notarytool submit "$DMG" "${notary_args[@]}" --wait
-  xcrun stapler staple "$DMG"
+if [[ -n "${NOTARY_PROFILE:-}${NOTARY_KEY:-}" ]]; then
+  # Resumable: an interrupted wait picks its submission back up instead of
+  # uploading the disk image again.
+  ./packaging/notarize.sh "$DMG"
 else
   echo
   echo "Signed but not notarized. Gatekeeper rejects this build on other Macs"

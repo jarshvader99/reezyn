@@ -21,8 +21,9 @@ The script refuses to run on a dirty tree, then:
 1. bumps `pyproject.toml`, `reezyn/__init__.py` and the version and both download
    links in `site/index.html`, and refreshes `uv.lock`;
 2. runs the test suite;
-3. builds and notarizes with `NOTARY_PROFILE` (default `reezyn`), failing if the
-   build came out signed but not notarized;
+3. builds, signs, verifies the disk image, and notarizes it with
+   `NOTARY_PROFILE` (default `reezyn`) through `packaging/notarize.sh`, failing
+   if the build came out signed but not notarized;
 4. copies the DMG into `site/downloads/`, removes the previous one, and stamps the
    new SHA-256 and size into the page. That folder is git-ignored and the deploy
    uploads it, so the build never enters the repository;
@@ -30,16 +31,44 @@ The script refuses to run on a dirty tree, then:
    `site/updates/latest.json` — version, zip URL, SHA-256, size, minimum macOS
    and the commit subjects since the last tag — which is what installed apps
    poll for updates;
-5. commits the release;
-6. deploys `site/` to `reezyn.elastikmind.com` through the Hostinger hosting MCP
+6. commits the release and tags it `v<version>`;
+7. deploys `site/` to `reezyn.elastikmind.com` through the Hostinger hosting MCP
    server, which authenticates through the Hostinger extension.
+
+Nothing is pushed. The run ends with the exact `git push origin main
+--follow-tags` to use once the site has been checked.
 
 The manifest and the zip must be published together: an app that sees a version
 newer than itself will download exactly the URL and checksum that manifest
 names, and refuses anything that does not match.
 
-Flags: `--no-deploy` stops before step 6, `--no-notarize` signs only, and
-`--skip-tests` skips step 2.
+Flags: `--no-deploy` stops before step 7, `--no-notarize` signs only,
+`--skip-tests` skips step 2, and `--resume` finishes an interrupted run (see
+below).
+
+## If a release is interrupted
+
+Steps are idempotent, so a run that dies part-way — a dropped upload, a closed
+terminal, a killed build — is finished rather than restarted:
+
+```bash
+packaging/release.sh --resume
+```
+
+`--resume` releases the version already in `pyproject.toml` (the only edits it
+tolerates are the version bump and the site files), reuses `dist/Reezyn-<version>.dmg`
+when it still verifies, and skips the package and feed steps when
+`site/updates/latest.json` already names that version.
+
+Notarization resumes on its own. `packaging/notarize.sh` submits without
+waiting, records the submission ID in `dist/.notary/`, then polls until Apple
+returns a verdict. A run that is killed while polling re-attaches to that same
+submission; one that already succeeded is only stapled. The state is keyed by
+the DMG's SHA-256, so rebuilding the image starts a fresh submission.
+
+A build that was killed can also leave a disk image helper holding `dist/` open,
+which makes every later `hdiutil` call hang. `build_app.sh` releases those
+helpers before it creates the image.
 
 ## Minimal checklist
 
@@ -138,8 +167,11 @@ The script will:
 2. codesign the app with `--options runtime`, a secure timestamp, and
    `packaging/Reezyn.entitlements`;
 3. codesign the DMG;
-4. submit the DMG with `notarytool submit --wait`;
-5. staple the notarization ticket to the DMG.
+4. verify the DMG with `hdiutil verify`;
+5. hand it to `packaging/notarize.sh`, which submits it with
+   `notarytool submit --no-wait`, polls for the verdict, and shows Apple's log if
+   the submission is rejected;
+6. staple the notarization ticket to the DMG and validate it.
 
 If you prefer the API-key environment path instead of a stored profile:
 
@@ -241,8 +273,10 @@ Common causes:
 - Store `NOTARY_PROFILE` and the keychain item in the CI runner's keychain, or
   inject `NOTARY_KEY`, `NOTARY_KEY_ID`, and `NOTARY_ISSUER` as masked secrets.
 - Never commit the `.p8`, the app-specific password, or a keychain export.
-- Notarization is asynchronous; always use `--wait` (the script does) before
-  stapling or publishing.
+- Notarization is asynchronous; never publish before the verdict is
+  `Accepted`. `packaging/notarize.sh` polls for it (and resumes an interrupted
+  submission from `dist/.notary/`) rather than relying on `notarytool … --wait`,
+  which loses the submission ID if the wait is killed.
 - Build on the same macOS architecture you ship. The current PyInstaller bundle
   is Apple Silicon; universal builds need a universal Python and universal
   native dependencies (`onnxruntime`, `portaudio`).

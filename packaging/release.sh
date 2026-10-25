@@ -1,13 +1,20 @@
 #!/usr/bin/env bash
 # Release Reezyn end to end: bump, test, build, notarize, commit, deploy.
 #
-#   packaging/release.sh patch            # 0.2.0 -> 0.2.1
+#   packaging/release.sh patch            # 0.2.2 -> 0.2.3
 #   packaging/release.sh 0.3.0 --no-deploy
+#   packaging/release.sh --resume         # finish a run that was cut off
 #
 # Flags:
+#   --resume        release the version already in pyproject.toml, reusing a
+#                   verified DMG and any notarization already in flight
 #   --no-deploy     build and commit, but leave the site alone
 #   --no-notarize   sign only; Gatekeeper will reject the DMG elsewhere
 #   --skip-tests    commit without running the suite first
+#
+# Every step is idempotent and notarization is resumable, so a run that dies
+# part-way (a dropped upload, a closed terminal) is finished with --resume
+# rather than by hand.
 #
 # Notarization uses NOTARY_PROFILE, defaulting to the "reezyn" keychain
 # profile. The deploy step needs the Hostinger extension signed in once.
@@ -20,83 +27,140 @@ SPEC=""
 DEPLOY=1
 NOTARIZE=1
 TESTS=1
+RESUME=0
+
+usage() {
+  sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+  exit 2
+}
 
 for arg in "$@"; do
   case "$arg" in
+    --resume) RESUME=1 ;;
     --no-deploy) DEPLOY=0 ;;
     --no-notarize) NOTARIZE=0 ;;
     --skip-tests) TESTS=0 ;;
-    -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) usage ;;
     -*) echo "unknown flag: $arg" >&2; exit 2 ;;
     *) SPEC="$arg" ;;
   esac
 done
 
-if [[ -z "$SPEC" ]]; then
-  echo "usage: packaging/release.sh <patch|minor|major|X.Y.Z> [--no-deploy] [--no-notarize] [--skip-tests]" >&2
-  exit 2
+TMP="$(mktemp -d -t reezyn-release)"
+trap 'rm -rf "$TMP"' EXIT
+
+if [[ "$RESUME" -eq 1 ]]; then
+  VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml | head -1)"
+  if [[ -z "$VERSION" ]]; then
+    echo "Could not read the version from pyproject.toml" >&2
+    exit 1
+  fi
+  # A cut-off run leaves the version bump behind, and nothing else. Anything
+  # more is an unrelated edit and the resume should not swallow it.
+  ALLOWED=" pyproject.toml uv.lock reezyn/__init__.py site/index.html site/updates/latest.json "
+  while read -r path; do
+    [[ -n "$path" ]] || continue
+    case "$ALLOWED" in
+      *" $path "*) ;;
+      *) echo "Refusing to resume with $path modified; commit or stash it first." >&2; exit 1 ;;
+    esac
+  done < <(git status --porcelain | awk '{print $2}')
+  CURRENT="$VERSION"
+  echo "==> Resuming Reezyn $VERSION"
+else
+  if [[ -z "$SPEC" ]]; then
+    usage
+  fi
+  if [[ -n "$(git status --porcelain)" ]]; then
+    echo "Working tree is dirty. Commit or stash first:" >&2
+    git status --short >&2
+    exit 1
+  fi
+  CURRENT="$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml | head -1)"
+  VERSION="$(uv run python packaging/release_version.py next "$CURRENT" "$SPEC")"
+  echo "==> Releasing $CURRENT -> $VERSION"
+
+  uv run python packaging/release_version.py apply "$VERSION"
+  uv lock --quiet
 fi
 
-if [[ -n "$(git status --porcelain)" ]]; then
-  echo "Working tree is dirty. Commit or stash first:" >&2
-  git status --short >&2
-  exit 1
-fi
-
-CURRENT="$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml | head -1)"
-VERSION="$(uv run python packaging/release_version.py next "$CURRENT" "$SPEC")"
-echo "==> Releasing $CURRENT -> $VERSION"
-
-uv run python packaging/release_version.py apply "$VERSION"
-uv lock --quiet
-
-if [[ "$TESTS" -eq 1 ]]; then
+if [[ "$TESTS" -eq 1 && "$RESUME" -eq 0 ]]; then
   echo "==> Tests"
   uv run pytest -q
 fi
 
-BUILD_LOG="$(mktemp -t reezyn-build)"
-trap 'rm -f "$BUILD_LOG"' EXIT
+DMG="dist/Reezyn-$VERSION.dmg"
 
-if [[ "$NOTARIZE" -eq 1 ]]; then
-  export NOTARY_PROFILE="${NOTARY_PROFILE:-reezyn}"
-  echo "==> Building and notarizing (keychain profile: $NOTARY_PROFILE)"
+if [[ "$RESUME" -eq 1 && -f "$DMG" ]] \
+    && hdiutil verify "$DMG" >/dev/null 2>&1 \
+    && codesign --verify "$DMG" 2>/dev/null; then
+  echo "==> Reusing the verified disk image from the interrupted run"
+else
+  BUILD_LOG="$TMP/build.log"
+  if [[ "$NOTARIZE" -eq 1 ]]; then
+    export NOTARY_PROFILE="${NOTARY_PROFILE:-reezyn}"
+    echo "==> Building, signing and notarizing (keychain profile: $NOTARY_PROFILE)"
+  else
+    echo "==> Building and signing only"
+  fi
   ./packaging/build_app.sh 2>&1 | tee "$BUILD_LOG"
   if grep -q "Signed but not notarized" "$BUILD_LOG"; then
     echo "Notarization was skipped; rebuild with a valid NOTARY_PROFILE." >&2
     exit 1
   fi
-else
-  echo "==> Building and signing only"
-  ./packaging/build_app.sh 2>&1 | tee "$BUILD_LOG"
 fi
 
-DMG="dist/Reezyn-$VERSION.dmg"
 if [[ ! -f "$DMG" ]]; then
   echo "No DMG at $DMG" >&2
   exit 1
 fi
 
-SHA="$(uv run python packaging/release_version.py stamp "$VERSION" "$DMG")"
-echo "==> stamped site download: $(basename "$DMG") ($SHA)"
+SHA="$(shasum -a 256 "$DMG" | awk '{print $1}')"
+echo "==> $DMG ($SHA)"
 
 ZIP="dist/Reezyn-$VERSION.zip"
-NOTES="$(mktemp -t reezyn-notes)"
-trap 'rm -f "$BUILD_LOG" "$NOTES"' EXIT
-echo "==> Packaging the app for updates"
-ditto -c -k --keepParent "dist/Reezyn.app" "$ZIP"
-LAST_TAG="$(git describe --tags --abbrev=0 2>/dev/null || true)"
-if [[ -n "$LAST_TAG" ]]; then
-  git log --pretty='%s' "$LAST_TAG"..HEAD > "$NOTES"
-else
-  git log -20 --pretty='%s' > "$NOTES"
+PUBLISHED=0
+if [[ "$RESUME" -eq 1 ]] \
+    && [[ -f "site/downloads/Reezyn-$VERSION.dmg" ]] \
+    && grep -q "\"version\": \"$VERSION\"" site/updates/latest.json 2>/dev/null; then
+  PUBLISHED=1
+  echo "==> The download page and the feed already point at $VERSION"
 fi
-uv run python packaging/release_version.py feed "$VERSION" "$ZIP" "$NOTES" >/dev/null
-echo "==> published updates/latest.json for $VERSION"
+
+SHA="$(uv run python packaging/release_version.py stamp "$VERSION" "$DMG")"
+if [[ "$PUBLISHED" -eq 1 ]]; then
+  echo "==> Download checksum still $SHA"
+else
+  echo "==> Stamped the site download ($SHA)"
+
+  NOTES="$TMP/notes.txt"
+  echo "==> Packaging the app for updates"
+  ditto -c -k --keepParent "dist/Reezyn.app" "$ZIP"
+  LAST_TAG="$(git describe --tags --abbrev=0 2>/dev/null || true)"
+  if [[ -n "$LAST_TAG" ]]; then
+    git log --pretty='%s' "$LAST_TAG"..HEAD > "$NOTES"
+  else
+    git log -20 --pretty='%s' > "$NOTES"
+  fi
+  uv run python packaging/release_version.py feed "$VERSION" "$ZIP" "$NOTES" >/dev/null
+  echo "==> Published updates/latest.json for $VERSION"
+fi
+
 
 git add pyproject.toml uv.lock reezyn/__init__.py site/index.html site/updates/latest.json
-git commit -q -m "release: Reezyn $VERSION"
-echo "==> committed $(git rev-parse --short HEAD)"
+if git diff --cached --quiet; then
+  echo "==> Nothing to commit; HEAD already carries $VERSION"
+else
+  git commit -q -m "release: Reezyn $VERSION"
+  echo "==> Committed $(git rev-parse --short HEAD)"
+fi
+
+if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+  echo "==> Tag v$VERSION already exists"
+else
+  git tag -a "v$VERSION" -m "Reezyn $VERSION"
+  echo "==> Tagged v$VERSION"
+fi
 
 if [[ "$DEPLOY" -eq 1 ]]; then
   echo "==> Deploying the site"
@@ -111,3 +175,5 @@ echo
 echo "Reezyn $VERSION released."
 echo "App: $PWD/dist/Reezyn.app"
 echo "DMG: $DMG"
+echo "SHA: $SHA"
+echo "Push with: git push origin main --follow-tags"

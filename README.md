@@ -765,6 +765,12 @@ NOTARY_KEY=~/AuthKey_XXXX.p8 NOTARY_KEY_ID=XXXX NOTARY_ISSUER=... \
   ./packaging/build_app.sh
 ```
 
+Notarization is resumable. The submission ID is recorded in `dist/.notary/`, so
+`packaging/notarize.sh dist/Reezyn-<version>.dmg` re-attaches to a submission
+that is still processing instead of uploading the disk image again, and an
+image that already carries its ticket is left untouched. `packaging/release.sh
+--resume` finishes a release that was cut off part-way.
+
 The test suite covers speech cleanup and excerpting, burst coalescing and
 deduplication, all six agent formats, hook installers, the cross-process
 spool, and an end-to-end Claude hook → fake speaker run. The real Kokoro engine
