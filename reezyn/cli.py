@@ -504,7 +504,14 @@ def cmd_recall(args: argparse.Namespace) -> int:
 
 
 def cmd_update(args: argparse.Namespace) -> int:
-    from .updates import check_for_update, install, installed_app_path, notes_text
+    from .updates import (
+        check_for_update,
+        install,
+        installed_app_path,
+        notes_text,
+        quit_app,
+        running_app_pid,
+    )
 
     home = app_home()
     config = load_config(home)
@@ -535,8 +542,16 @@ def cmd_update(args: argparse.Namespace) -> int:
             print("Nothing installed.")
             return 0
 
-    install(update, app_path=target)
-    print("Installing now; Reezyn reopens on the new version once this process exits.")
+    # Wait on the app, not on this command: the helper has to outlive the app
+    # it is replacing, and reopening it only works once the old process is gone.
+    running = running_app_pid()
+    install(update, app_path=target, pid=running or None)
+    if not running:
+        print("Installing now; Reezyn reopens on the new version once this process exits.")
+        return 0
+    print(f"Reezyn {update.version} is installing; the running app quits and reopens on it.")
+    if not quit_app(running):
+        print("Reezyn did not quit. Quit it from the menu bar to finish installing.")
     return 0
 
 

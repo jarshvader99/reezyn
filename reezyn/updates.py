@@ -18,6 +18,7 @@ import os
 import platform
 import re
 import shlex
+import signal
 import subprocess
 import sys
 import tempfile
@@ -29,6 +30,7 @@ from typing import Any, Callable
 
 from . import __version__
 from .config import UPDATE_FEED, app_home
+from .runtime import read_running
 
 log = logging.getLogger("reezyn")
 
@@ -279,6 +281,62 @@ def unpack(archive: Path, into: Path, run: Runner = subprocess.run) -> Path:
     if len(apps) != 1:
         raise UpdateError(f"expected one app in the archive, found {len(apps)}")
     return apps[0]
+
+
+def running_app_pid() -> int:
+    """The pid of the installed app when it is running, otherwise 0.
+
+    AppKit is authoritative: it matches on the bundle identifier, so a stale
+    pid file for some other process can never be mistaken for Reezyn.
+    """
+
+    try:
+        from AppKit import NSRunningApplication
+
+        apps = NSRunningApplication.runningApplicationsWithBundleIdentifier_(BUNDLE_ID)
+        if apps:
+            return int(apps[0].processIdentifier())
+    except Exception:
+        log.debug("could not ask AppKit for the running app", exc_info=True)
+    value = read_running(app_home())
+    pid = value.get("pid") if isinstance(value, dict) else None
+    if isinstance(pid, int) and pid > 0:
+        try:
+            os.kill(pid, 0)
+            return pid
+        except OSError:
+            return 0
+    return 0
+
+
+def quit_app(pid: int, wait_s: float = 5.0) -> bool:
+    """Ask the running app to quit, and report whether it went."""
+
+    if pid <= 0:
+        return True
+    asked = False
+    try:
+        from AppKit import NSRunningApplication
+
+        app = NSRunningApplication.runningApplicationWithProcessIdentifier_(pid)
+        if app is not None:
+            app.terminate()
+            asked = True
+    except Exception:
+        log.debug("could not terminate the app through AppKit", exc_info=True)
+    if not asked:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            return True
+    deadline = time.time() + wait_s
+    while time.time() < deadline:
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            return True
+        time.sleep(0.1)
+    return False
 
 
 def installed_app_path() -> Path:
