@@ -7,6 +7,31 @@ credentials are present — submits the DMG to Apple and staples the ticket.
 A build that is signed but **not notarized** is rejected by Gatekeeper on other
 Macs. The script says so at the end. This page covers the remaining steps.
 
+## One-step release
+
+Once the notarization credentials are stored, the whole release is one command:
+
+```bash
+packaging/release.sh patch            # 0.2.0 -> 0.2.1
+packaging/release.sh 0.3.0 --no-deploy
+```
+
+The script refuses to run on a dirty tree, then:
+
+1. bumps `pyproject.toml`, `reezyn/__init__.py` and the version and both download
+   links in `site/index.html`, and refreshes `uv.lock`;
+2. runs the test suite;
+3. builds and notarizes with `NOTARY_PROFILE` (default `reezyn`), failing if the
+   build came out signed but not notarized;
+4. copies the DMG into `site/downloads/`, removes the previous one, and stamps the
+   new SHA-256 and size into the page;
+5. commits the release;
+6. deploys `site/` to `reezyn.elastikmind.com` through the Hostinger hosting MCP
+   server, which authenticates through the Hostinger extension.
+
+Flags: `--no-deploy` stops before step 6, `--no-notarize` signs only, and
+`--skip-tests` skips step 2.
+
 ## Minimal checklist
 
 Do this once on a Mac that has the Developer ID certificate:
@@ -217,8 +242,9 @@ Common causes:
 ## Current release status
 
 The repository's build script signs the app and DMG but deliberately does not
-invent credentials. Until `NOTARY_PROFILE` (or the API-key variables) is set,
-the build is **signed, not notarized**, and Gatekeeper rejects it on other Macs.
-Run the one-time credential setup above, then rebuild with the profile.
+invent credentials. A build without `NOTARY_PROFILE` (or the API-key variables)
+is **signed, not notarized**, and Gatekeeper rejects it on other Macs. This Mac
+has a keychain profile named `reezyn`, which `packaging/release.sh` uses by
+default; releases since 0.2.0 are notarized and stapled.
 
 Back to [Home](Home).
