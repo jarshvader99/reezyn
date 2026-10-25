@@ -1,0 +1,1242 @@
+<!doctype html>
+<html lang="en" data-resolution="landscape">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      @font-face {
+        font-family: "Rethink Sans";
+        src: url("./assets/fonts/rethink-sans-latin.woff2") format("woff2");
+        font-weight: 400 800;
+        font-style: normal;
+      }
+      @font-face {
+        font-family: "Hanken Grotesk";
+        src: url("./assets/fonts/hanken-grotesk-latin.woff2") format("woff2");
+        font-weight: 400 700;
+        font-style: normal;
+      }
+      @font-face {
+        font-family: "IBM Plex Mono";
+        src: url("./assets/fonts/ibm-plex-mono-400-latin.woff2") format("woff2");
+        font-weight: 400;
+        font-style: normal;
+      }
+      @font-face {
+        font-family: "IBM Plex Mono";
+        src: url("./assets/fonts/ibm-plex-mono-500-latin.woff2") format("woff2");
+        font-weight: 500;
+        font-style: normal;
+      }
+
+      :root {
+        --ground: #0e120f;
+        --panel: #131a16;
+        --panel-2: #0b0f0d;
+        --ink: #f2f1e6;
+        --ink-2: #d8d9c9;
+        --muted: #9caa9b;
+        --rule: #35403a;
+        --accent: #a9d18e;
+        --amber: #e6c58c;
+        --display: "Rethink Sans", sans-serif;
+        --body: "Hanken Grotesk", sans-serif;
+        --mono: "IBM Plex Mono", monospace;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: var(--ground);
+        color: var(--ink);
+        font-family: var(--body);
+        -webkit-font-smoothing: antialiased;
+      }
+      #root {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      #ground {
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(1100px 720px at 78% 14%, #17221b 0%, rgba(14, 18, 15, 0) 62%),
+          radial-gradient(900px 620px at 8% 96%, #131c16 0%, rgba(14, 18, 15, 0) 60%),
+          #0e120f;
+      }
+      #ground::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(1400px 900px at 50% 50%, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.55) 100%);
+      }
+
+      .scene {
+        position: absolute;
+        inset: 0;
+      }
+      .copy {
+        position: absolute;
+      }
+      .kicker {
+        font-family: var(--mono);
+        font-size: 19px;
+        font-weight: 500;
+        letter-spacing: 0.19em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .headline {
+        margin-top: 26px;
+        font-family: var(--display);
+        font-size: 76px;
+        font-weight: 600;
+        line-height: 1.03;
+        letter-spacing: -0.03em;
+        color: var(--ink);
+        max-width: 15ch;
+      }
+      .headline em {
+        font-style: normal;
+        color: var(--accent);
+      }
+      .support {
+        margin-top: 28px;
+        font-family: var(--mono);
+        font-size: 21px;
+        color: var(--muted);
+        letter-spacing: 0.01em;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 18px;
+        border: 1px solid var(--rule);
+        border-radius: 999px;
+        font-family: var(--mono);
+        font-size: 22px;
+        color: var(--ink-2);
+        background: rgba(19, 26, 22, 0.8);
+      }
+      .chip .dot-a {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+
+      /* terminal */
+      .term {
+        position: absolute;
+        border: 1px solid var(--rule);
+        border-radius: 14px;
+        background: var(--panel-2);
+        overflow: hidden;
+        box-shadow: 0 50px 90px rgba(0, 0, 0, 0.5);
+      }
+      .term-head {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        height: 46px;
+        padding: 0 18px;
+        border-bottom: 1px solid var(--rule);
+        font-family: var(--mono);
+        font-size: 16px;
+        color: var(--muted);
+        background: #0d1210;
+      }
+      .term-head .dot {
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        background: #2c3730;
+      }
+      .term-title {
+        margin-left: 10px;
+      }
+      .term-tab {
+        margin-left: auto;
+        padding: 4px 12px;
+        border: 1px solid var(--rule);
+        border-radius: 6px;
+        font-size: 16px;
+      }
+      .term-body {
+        padding: 24px 28px;
+        font-family: var(--mono);
+        font-size: 28px;
+        line-height: 1.62;
+        color: var(--ink-2);
+      }
+      .t-line {
+        white-space: nowrap;
+      }
+      .t-prompt,
+      .t-think {
+        color: var(--muted);
+      }
+      .t-you {
+        color: var(--ink);
+      }
+      .t-tool {
+        color: var(--ink-2);
+      }
+      .t-file,
+      .t-accent {
+        color: var(--accent);
+      }
+      .t-think-body {
+        color: var(--muted);
+        opacity: 0.85;
+      }
+      .t-think-body span {
+        display: block;
+      }
+      .caret {
+        display: inline-block;
+        width: 11px;
+        height: 22px;
+        margin-left: 4px;
+        background: var(--accent);
+        vertical-align: -3px;
+      }
+
+      /* spoken line card */
+      .said {
+        position: relative;
+        border-left: 2px solid var(--accent);
+        padding: 4px 0 4px 22px;
+        font-family: var(--mono);
+        font-size: 25px;
+        line-height: 1.5;
+        color: var(--ink);
+      }
+      .said .label {
+        display: block;
+        margin-bottom: 12px;
+        font-size: 15px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .wave {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        height: 46px;
+      }
+      .wave i {
+        display: block;
+        width: 4px;
+        border-radius: 2px;
+        background: var(--accent);
+      }
+
+      /* event pills */
+      .pills {
+        position: absolute;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+      }
+      .pill {
+        padding: 12px 20px;
+        border: 1px solid var(--rule);
+        border-radius: 10px;
+        font-family: var(--mono);
+        font-size: 19px;
+        color: var(--muted);
+        background: rgba(19, 26, 22, 0.6);
+        white-space: nowrap;
+      }
+      .pill.kept {
+        border-color: var(--accent);
+        color: var(--ink);
+        background: rgba(169, 209, 142, 0.1);
+      }
+
+      /* pipeline */
+      .path {
+        position: absolute;
+        left: 140px;
+        right: 140px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+      }
+      .path-rule {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 34px;
+        height: 1px;
+        background: var(--rule);
+        transform-origin: left center;
+      }
+      .node {
+        position: relative;
+        width: 240px;
+      }
+      .node .idx {
+        font-family: var(--mono);
+        font-size: 18px;
+        color: var(--muted);
+      }
+      .node .pin {
+        position: relative;
+        z-index: 2;
+        width: 9px;
+        height: 9px;
+        margin: 9px 0 20px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 0 5px rgba(169, 209, 142, 0.12);
+      }
+      .node .name {
+        font-family: var(--display);
+        font-size: 40px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        color: var(--ink);
+      }
+      .node .sub {
+        margin-top: 8px;
+        font-family: var(--mono);
+        font-size: 22px;
+        color: var(--muted);
+      }
+
+      /* agent cards */
+      .cards {
+        position: absolute;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+      }
+      .card {
+        padding: 26px 28px;
+        border: 1px solid var(--rule);
+        border-radius: 12px;
+        background: rgba(19, 26, 22, 0.66);
+      }
+      .card .name {
+        font-family: var(--display);
+        font-size: 32px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        color: var(--ink);
+      }
+      .card .how {
+        margin-top: 10px;
+        font-family: var(--mono);
+        font-size: 21px;
+        color: var(--muted);
+      }
+
+      /* transform columns */
+      .panel {
+        position: absolute;
+        border: 1px solid var(--rule);
+        border-radius: 14px;
+        background: rgba(19, 26, 22, 0.7);
+        padding: 30px 34px;
+        font-family: var(--mono);
+        font-size: 28px;
+        line-height: 1.55;
+        color: var(--ink-2);
+      }
+      .panel .panel-label {
+        display: block;
+        margin-bottom: 18px;
+        font-size: 15px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .strike {
+        position: relative;
+        color: var(--muted);
+      }
+      .strike::before {
+        content: "";
+        position: absolute;
+        left: -2px;
+        right: -2px;
+        top: 54%;
+        height: 1px;
+        background: var(--amber);
+        transform-origin: left center;
+        transform: scaleX(var(--k, 0));
+      }
+      
+      .arrow {
+        position: absolute;
+        font-family: var(--mono);
+        font-size: 34px;
+        color: var(--accent);
+      }
+
+      /* voice list */
+      .voice-group {
+        position: absolute;
+        left: 140px;
+        width: 900px;
+      }
+      .voice-group .lang {
+        font-family: var(--mono);
+        font-size: 16px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 14px;
+      }
+      .voice-row {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .voice {
+        padding: 10px 18px;
+        border: 1px solid var(--rule);
+        border-radius: 8px;
+        font-family: var(--display);
+        font-size: 26px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        color: var(--ink-2);
+      }
+      .voice.on {
+        border-color: var(--accent);
+        color: var(--ground);
+        background: var(--accent);
+      }
+      .pace {
+        position: absolute;
+        left: 1140px;
+        top: 330px;
+        width: 640px;
+      }
+      .pace-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        padding: 20px 0;
+        border-bottom: 1px solid var(--rule);
+        font-family: var(--display);
+        font-size: 30px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        color: var(--ink-2);
+      }
+      .pace-row:first-child {
+        border-top: 1px solid var(--rule);
+      }
+      .pace-row .x {
+        font-family: var(--mono);
+        font-size: 22px;
+        font-weight: 400;
+        color: var(--muted);
+      }
+      .pace-row.on {
+        color: var(--accent);
+      }
+      .pace-row.on .x {
+        color: var(--accent);
+      }
+
+      /* menu bar */
+      .menubar {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        height: 34px;
+        display: flex;
+        align-items: center;
+        gap: 26px;
+        padding: 0 28px;
+        background: rgba(8, 11, 9, 0.92);
+        border-bottom: 1px solid #1b241e;
+        font-family: var(--body);
+        font-size: 16px;
+        color: rgba(242, 241, 230, 0.72);
+      }
+      .menubar .strong {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .menubar .right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+      .seed {
+        width: 17px;
+        height: 17px;
+        color: var(--accent);
+      }
+      .menu-panel {
+        position: absolute;
+        border: 1px solid #2a352d;
+        border-radius: 10px;
+        background: rgba(22, 29, 24, 0.97);
+        box-shadow: 0 40px 80px rgba(0, 0, 0, 0.6);
+        padding: 10px 0;
+        width: 560px;
+        font-family: var(--body);
+        font-size: 20px;
+        color: var(--ink-2);
+      }
+      .mi {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 8px 20px;
+      }
+      .mi .hint {
+        color: var(--muted);
+        font-size: 17px;
+      }
+      .mi.head {
+        color: var(--muted);
+        font-size: 15px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        padding-bottom: 4px;
+      }
+      .sep {
+        height: 1px;
+        margin: 8px 16px;
+        background: #2a352d;
+      }
+      .cc {
+        position: absolute;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 22px;
+        background: rgba(22, 29, 24, 0.9);
+        padding: 28px 34px 16px;
+      }
+      .cc .line {
+        text-align: center;
+        font-family: var(--body);
+        font-size: 30px;
+        line-height: 1.35;
+        color: rgba(242, 241, 230, 0.5);
+      }
+      .cc .line.now {
+        color: var(--ink);
+        font-size: 36px;
+      }
+      .cc .strip {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 22px;
+        margin-top: 18px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        font-family: var(--body);
+        font-size: 20px;
+        color: rgba(242, 241, 230, 0.62);
+      }
+      .slider {
+        width: 84px;
+        height: 3px;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.28);
+      }
+
+      /* memory */
+      .quote {
+        position: absolute;
+        padding: 34px 38px;
+        border: 1px solid var(--rule);
+        border-radius: 14px;
+        background: rgba(19, 26, 22, 0.66);
+      }
+      .quote .label {
+        font-family: var(--mono);
+        font-size: 15px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .quote .text {
+        margin-top: 22px;
+        font-family: var(--display);
+        font-size: 44px;
+        font-weight: 600;
+        line-height: 1.16;
+        letter-spacing: -0.025em;
+        color: var(--ink);
+      }
+      .quote .fine {
+        margin-top: 22px;
+        font-family: var(--mono);
+        font-size: 16px;
+        color: var(--muted);
+      }
+
+      /* steps list */
+      .steps {
+        position: absolute;
+      }
+      .step {
+        display: flex;
+        gap: 20px;
+        padding: 18px 0;
+        border-bottom: 1px solid var(--rule);
+        font-family: var(--mono);
+        font-size: 23px;
+        color: var(--ink-2);
+      }
+      .step:first-child {
+        border-top: 1px solid var(--rule);
+      }
+      .step .n {
+        color: var(--accent);
+        width: 26px;
+        flex: none;
+      }
+      .step b {
+        font-family: var(--display);
+        font-size: 24px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        color: var(--ink);
+        display: block;
+        margin-bottom: 6px;
+      }
+
+      /* phone */
+      .phone {
+        position: absolute;
+        border: 1px solid #2c3830;
+        border-radius: 46px;
+        background: #0e120f;
+        padding: 16px;
+        box-shadow: 0 50px 100px rgba(0, 0, 0, 0.6);
+      }
+      .phone-screen {
+        position: relative;
+        height: 100%;
+        border-radius: 34px;
+        background: #0e120f;
+        padding: 62px 22px 22px;
+        overflow: hidden;
+      }
+      .notch {
+        position: absolute;
+        top: 14px;
+        left: 50%;
+        width: 120px;
+        height: 26px;
+        margin-left: -60px;
+        border-radius: 999px;
+        background: #050706;
+      }
+      .ph-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-family: var(--body);
+        font-size: 20px;
+        font-weight: 600;
+        color: var(--ink);
+      }
+      .ph-head .pulse {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+      .ph-head .conn {
+        margin-left: auto;
+        font-family: var(--mono);
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .ph-meta {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+        font-family: var(--mono);
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .ph-meta .pill-s {
+        padding: 3px 9px;
+        border: 1px solid var(--rule);
+        border-radius: 999px;
+      }
+      .ph-now {
+        margin-top: 12px;
+        font-family: var(--body);
+        font-size: 21px;
+        line-height: 1.35;
+        color: var(--ink);
+      }
+      .ph-card {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border: 1px solid var(--rule);
+        border-radius: 14px;
+        background: rgba(20, 27, 22, 0.8);
+      }
+      .ph-card .t {
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .ph-card .body {
+        margin-top: 8px;
+        font-family: var(--mono);
+        font-size: 14px;
+        line-height: 1.5;
+        color: var(--ink-2);
+      }
+      .ph-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .btn {
+        padding: 8px 16px;
+        border-radius: 9px;
+        font-family: var(--body);
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--ink);
+        border: 1px solid var(--rule);
+      }
+      .btn.solid {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #0e120f;
+      }
+      .ph-feed {
+        margin-top: 10px;
+        display: grid;
+        gap: 7px;
+        font-family: var(--mono);
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .ph-input {
+        margin-top: 14px;
+        height: 44px;
+        padding: 12px 14px;
+        border: 1px solid var(--rule);
+        border-radius: 10px;
+        font-family: var(--body);
+        font-size: 15px;
+        color: var(--muted);
+      }
+      .ph-toggle {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin-top: 12px;
+        font-family: var(--body);
+        font-size: 14px;
+        color: var(--ink-2);
+      }
+      .ph-toggle .box {
+        width: 16px;
+        height: 16px;
+        border: 1px solid var(--muted);
+        border-radius: 4px;
+        background: var(--accent);
+      }
+      .ph-foot {
+        margin-top: 14px;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      /* checklist */
+      .checks {
+        position: absolute;
+      }
+      .check {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        padding: 20px 0;
+        border-bottom: 1px solid var(--rule);
+        font-family: var(--display);
+        font-size: 40px;
+        font-weight: 600;
+        letter-spacing: -0.025em;
+        color: var(--ink);
+      }
+      .check:first-child {
+        border-top: 1px solid var(--rule);
+      }
+      .check svg {
+        flex: none;
+        width: 30px;
+        height: 30px;
+        color: var(--accent);
+      }
+
+      /* end card */
+      .end {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-content: center;
+        justify-items: center;
+        text-align: center;
+      }
+      .end .mark {
+        width: 176px;
+        height: 176px;
+      }
+      .end .word {
+        margin-top: 30px;
+        font-family: var(--display);
+        font-size: 184px;
+        font-weight: 600;
+        letter-spacing: -0.035em;
+        line-height: 1;
+        color: var(--ink);
+      }
+      .end .line {
+        margin-top: 22px;
+        font-family: var(--mono);
+        font-size: 20px;
+        color: var(--muted);
+      }
+      .end .cmd {
+        margin-top: 30px;
+        padding: 14px 22px;
+        border: 1px solid var(--rule);
+        border-radius: 10px;
+        font-family: var(--mono);
+        font-size: 20px;
+        color: var(--ink-2);
+      }
+
+      /* captions */
+      .cap {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: auto;
+        height: auto;
+        bottom: 74px;
+        text-align: center;
+        pointer-events: none;
+      }
+      .cap span {
+        display: inline-block;
+        max-width: 1280px;
+        padding: 12px 26px;
+        font-family: var(--body);
+        font-size: 33px;
+        line-height: 1.32;
+        font-weight: 500;
+        color: var(--ink);
+        background: rgba(9, 13, 10, 0.82);
+        border-radius: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="@total@"
+      data-width="1920"
+      data-height="1080"
+    >
+      <div id="ground"></div>
+
+      <audio id="vo" src="assets/audio/vo.wav" data-start="0" data-duration="@total@" data-track-index="4" data-volume="1"></audio>
+
+      <!-- 01 · the quiet part -->
+      <section class="clip scene" id="s-quiet" data-start="@quiet.start@" data-duration="@quiet.dur@">
+        <div class="term" id="q-term" style="left: 140px; top: 210px; width: 900px; height: 540px">
+          <div class="term-head">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            <span class="term-title">claude — ~/src/acme</span>
+            <span class="term-tab">session.ts</span>
+          </div>
+          <div class="term-body">
+            <div class="t-line t-prompt q-l" id="q0">$ claude</div>
+            <div class="t-line t-you q-l" id="q1">› fix the stale refresh token bug</div>
+            <div class="t-line t-tool q-l" id="q2">● Read <span class="t-file">src/auth/session.ts</span></div>
+            <div class="t-line t-tool q-l" id="q3">● Grep refreshToken</div>
+            <div class="t-line t-tool q-l" id="q4">● Bash npm test -- --auth</div>
+            <div class="t-line t-think q-l" id="q5">↳ Thinking</div>
+            <div class="t-think-body q-l" id="q6">
+              <span>The refresh path is rotating the cookie</span>
+              <span>but not invalidating the old token.</span>
+            </div>
+          </div>
+        </div>
+        <div class="copy" style="left: 1130px; top: 214px; width: 660px">
+          <p class="kicker" data-layout-ignore id="q-kicker">01 / The quiet part</p>
+          <h1 class="headline" id="q-head">Your coding agent <em>thinks out loud.</em></h1>
+          <p class="support" data-layout-ignore id="q-supp">The reasoning is already in the log.</p>
+          <div class="said" id="q-said" style="margin-top: 44px; width: 660px">
+            <span class="label" data-layout-ignore>Spoken</span>
+            The refresh path is rotating the cookie, but not invalidating the old token.
+            <div class="wave" id="q-wave" style="margin-top: 18px"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 02 · one line at a time -->
+      <section class="clip scene" id="s-pause" data-start="@pause.start@" data-duration="@pause.dur@">
+        <div class="copy" style="left: 140px; top: 150px; width: 900px">
+          <p class="kicker" data-layout-ignore id="pa-kicker">02 / One line at a time</p>
+          <h1 class="headline" id="pa-head">It waits for <em>the pause.</em></h1>
+        </div>
+        <div class="pills" id="pa-pills" style="left: 140px; right: 140px; top: 400px">
+          <div class="pill">PreToolUse · Read</div>
+          <div class="pill">Grep refreshToken</div>
+          <div class="pill">Bash npm test</div>
+          <div class="pill">reasoning</div>
+          <div class="pill">apply_patch</div>
+          <div class="pill">mcp · filesystem</div>
+          <div class="pill">web_search</div>
+          <div class="pill">UserPromptSubmit</div>
+        </div>
+        <div class="quote" id="pa-kept" style="left: 140px; top: 560px; width: 1080px; padding: 28px 34px">
+          <span class="label" data-layout-ignore>Kept · the most recent useful thought</span>
+          <div class="text" style="font-size: 40px; margin-top: 16px">
+            The refresh path is rotating the cookie, but not invalidating&nbsp;the&nbsp;old&nbsp;token.
+          </div>
+        </div>
+        <div id="pa-chips" style="position: absolute; left: 140px; top: 760px; display: flex; gap: 14px">
+          <span class="chip"><span class="dot-a"></span>700 ms debounce</span>
+          <span class="chip"><span class="dot-a"></span>9 s stale</span>
+          <span class="chip"><span class="dot-a"></span>30 s dedupe</span>
+          <span class="chip"><span class="dot-a"></span>2 sentences</span>
+        </div>
+      </section>
+
+      <!-- 03 · the signal path -->
+      <section class="clip scene" id="s-path" data-start="@path.start@" data-duration="@path.dur@">
+        <div class="copy" style="left: 140px; top: 150px; width: 1100px">
+          <p class="kicker" data-layout-ignore id="pt-kicker">03 / The signal path</p>
+          <h1 class="headline" id="pt-head">Six stations, <em>no model in the middle.</em></h1>
+        </div>
+        <div class="path" id="pt-path" data-hold style="top: 480px">
+          <div class="path-rule" id="pt-rule"></div>
+          <div class="node"><div class="idx">01</div><div class="pin"></div><div class="name">Event</div><div class="sub">tool call · reasoning</div></div>
+          <div class="node"><div class="idx">02</div><div class="pin"></div><div class="name">Adapter</div><div class="sub">reads the session log</div></div>
+          <div class="node"><div class="idx">03</div><div class="pin"></div><div class="name">Coalescer</div><div class="sub">picks the burst</div></div>
+          <div class="node"><div class="idx">04</div><div class="pin"></div><div class="name">Cleaner</div><div class="sub">strips the code</div></div>
+          <div class="node"><div class="idx">05</div><div class="pin"></div><div class="name">Kokoro</div><div class="sub">on-device voice</div></div>
+          <div class="node"><div class="idx">06</div><div class="pin"></div><div class="name">Audio</div><div class="sub">24 kHz · treated</div></div>
+        </div>
+        <div id="pt-chips" style="position: absolute; left: 140px; top: 740px; display: flex; gap: 14px">
+          <span class="chip"><span class="dot-a"></span>142 MB model, once</span>
+          <span class="chip"><span class="dot-a"></span>no cloud API</span>
+          <span class="chip"><span class="dot-a"></span>Apache 2.0</span>
+        </div>
+      </section>
+
+      <!-- 04 · six agents -->
+      <section class="clip scene" id="s-agents" data-start="@agents.start@" data-duration="@agents.dur@">
+        <div class="copy" style="left: 140px; top: 150px; width: 1100px">
+          <p class="kicker" data-layout-ignore id="ag-kicker">04 / Six agents, one voice</p>
+          <h1 class="headline" id="ag-head">Whatever you drive, <em>it listens.</em></h1>
+        </div>
+        <div class="cards" id="ag-cards" style="left: 140px; right: 140px; top: 390px">
+          <div class="card"><div class="name">Claude Code</div><div class="how">PreToolUse · UserPromptSubmit · Stop</div></div>
+          <div class="card"><div class="name">Codex CLI</div><div class="how">rollout jsonl, followed live</div></div>
+          <div class="card"><div class="name">Gemini CLI</div><div class="how">BeforeTool · BeforeAgent · AfterAgent</div></div>
+          <div class="card"><div class="name">Cursor</div><div class="how">agent transcripts</div></div>
+          <div class="card"><div class="name">OpenCode</div><div class="how">SQLite, read-only</div></div>
+          <div class="card"><div class="name">Freebuff</div><div class="how">chat snapshots</div></div>
+        </div>
+        <div class="panel" id="ag-emit" style="left: 140px; top: 730px; width: 1640px; padding: 22px 28px; font-size: 22px">
+          <span class="t-accent">$</span> reezyn emit --agent custom --text "I'll read the session middleware."
+        </div>
+      </section>
+
+      <!-- 07 · in the menu bar -->
+      <section class="clip scene" id="s-menu" data-start="@menu.start@" data-duration="@menu.dur@">
+        <div class="menubar" id="me-bar" data-layout-ignore>
+          <span class="strong">Terminal</span><span>File</span><span>Edit</span><span>View</span><span>Window</span><span>Help</span>
+          <span class="right">
+            <svg class="seed" id="me-seed" viewBox="0 0 18 18" fill="currentColor">
+              <path d="M9 16c-.3-2.6.4-5.4.1-8.1" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" />
+              <path d="M9 5.2C6.8 5.3 4.2 3.1 4.1.5 5.4-.6 7.7 1.7 9 3.8Z" transform="translate(0 3)" />
+              <path d="M9 6.7c2.2-.2 4.6-2 4.9-4.7C12.6-1.8 10.8.5 9 2.3Z" transform="translate(0 3)" />
+            </svg>
+            <span>9:41</span>
+          </span>
+        </div>
+        <div class="copy" style="left: 140px; top: 150px; width: 900px">
+          <p class="kicker" data-layout-ignore id="me-kicker">05 / In the menu bar</p>
+          <h1 class="headline" id="me-head">The whole app is <em>one menu.</em></h1>
+        </div>
+        <div class="cc" id="me-cc" data-hold style="left: 140px; top: 470px; width: 900px">
+          <div class="line">I'm reading <span class="t-accent">session.ts</span> to check the refresh path.</div>
+          <div class="line now">The refresh path rotates the cookie but never invalidates the old token.</div>
+          <div class="strip">
+            <span>⏸</span><span>⏭</span><span>⧉</span><span>A−</span><span>A+</span><span class="slider"></span><span>▾</span><span>✕</span>
+          </div>
+        </div>
+        <div class="menu-panel" id="me-panel" data-layout-ignore data-hold style="left: 1180px; top: 120px">
+          <div class="mi head"><span>Listening</span><span class="hint">waiting for a worthwhile event</span></div>
+          <div class="mi"><span>Active agent: Claude Code</span></div>
+          <div class="mi"><span>Last spoken: The refresh path rotates…</span></div>
+          <div class="sep"></div>
+          <div class="mi"><span>Pause narration</span></div>
+          <div class="mi"><span>Skip this thought</span></div>
+          <div class="mi"><span>Recent thoughts</span><span class="hint">›</span></div>
+          <div class="mi"><span>Recap the last session</span></div>
+          <div class="sep"></div>
+          <div class="mi"><span>CC viewer</span><span class="hint">›</span></div>
+          <div class="mi"><span>Recall when I re-ask</span><span class="hint">✓</span></div>
+          <div class="mi"><span>Voice</span><span class="hint">English · Heart</span></div>
+          <div class="mi"><span>Pace</span><span class="hint">Natural</span></div>
+          <div class="mi"><span>Presence bed</span><span class="hint">Soft</span></div>
+          <div class="mi"><span>Lull banter</span><span class="hint">✓</span></div>
+          <div class="mi"><span>Voice input</span><span class="hint">✓</span></div>
+          <div class="mi"><span>Remote access</span><span class="hint">›</span></div>
+        </div>
+        <div class="support" data-layout-ignore id="me-hint" style="position: absolute; left: 140px; top: 760px">⌥⌘H shows and hides the viewer from any app.</div>
+      </section>
+
+      <!-- 09 · your turn -->
+      <section class="clip scene" id="s-dictation" data-start="@dictation.start@" data-duration="@dictation.dur@">
+        <div class="copy" style="left: 140px; top: 150px; width: 1100px">
+          <p class="kicker" data-layout-ignore id="dc-kicker">07 / Your turn</p>
+          <h1 class="headline" id="dc-head">Reply without <em>the keyboard.</em></h1>
+        </div>
+        <div class="term" id="dc-term" data-hold style="left: 140px; top: 390px; width: 1000px; height: 330px">
+          <div class="term-head">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            <span class="term-title">claude — ~/src/acme</span>
+            <span class="term-tab">Listening · "rerun the auth tests"</span>
+          </div>
+          <div class="term-body">
+            <div class="t-line t-prompt">›</div>
+            <div class="t-line t-you" id="dc-draft">rerun the auth tests<span class="caret" id="dc-caret"></span></div>
+            <div class="t-line t-think" id="dc-ask">Ready to send it? <span class="t-accent">yes · send it now</span></div>
+          </div>
+        </div>
+        <div class="steps" id="dc-steps" style="left: 1220px; top: 400px; width: 560px">
+          <div class="step"><span class="n">01</span><span><b>Say Reezyn</b>fuzzy matching takes "reason" or "resin"</span></div>
+          <div class="step"><span class="n">02</span><span><b>It drafts</b>typed at the caret, never submitted</span></div>
+          <div class="step"><span class="n">03</span><span><b>It asks</b>unless you end with "send it now"</span></div>
+          <div class="step"><span class="n">04</span><span><b>It answers</b>final answer spoken, mic reopens</span></div>
+        </div>
+      </section>
+
+      <!-- 10 · away from the desk -->
+      <section class="clip scene" id="s-remote" data-start="@remote.start@" data-duration="@remote.dur@">
+        <div class="copy" style="left: 140px; top: 150px; width: 900px">
+          <p class="kicker" data-layout-ignore id="rm-kicker">08 / Away from the desk</p>
+          <h1 class="headline" id="rm-head">The session comes <em>with you.</em></h1>
+        </div>
+        <div class="steps" id="rm-list" style="left: 140px; top: 470px; width: 780px">
+          <div class="step"><span class="n">·</span><span><b>Live</b>agent, project, the current line, the last six</span></div>
+          <div class="step"><span class="n">·</span><span><b>Allow or deny</b>permission prompts, from the phone</span></div>
+          <div class="step"><span class="n">·</span><span><b>Reply by text or voice</b>typed into the terminal on the Mac</span></div>
+          <div class="step"><span class="n">·</span><span><b>Read aloud, and a recap</b>the phone speaks while the Mac pauses</span></div>
+        </div>
+        <div class="phone" id="rm-phone" data-hold data-layout-ignore style="left: 1190px; top: 84px; width: 440px; height: 780px">
+          <div class="phone-screen">
+            <div class="notch"></div>
+            <div class="ph-head"><span class="pulse"></span><span>Reezyn</span><span class="conn">live · tailnet</span></div>
+            <div class="ph-meta"><span class="pill-s">Claude Code</span><span class="pill-s">speaking</span></div>
+            <div class="ph-now">The refresh path rotates the cookie but never invalidates the old token.</div>
+            <div class="ph-card">
+              <div class="t">The agent is waiting</div>
+              <div class="body">Edit src/auth/session.ts</div>
+              <div class="ph-actions"><span class="btn solid">Allow</span><span class="btn">Deny</span></div>
+            </div>
+            <div class="ph-card">
+              <div class="t">Live</div>
+              <div class="ph-feed">
+                <span>I'll read session.ts first.</span>
+                <span>The refresh path rotates the cookie…</span>
+                <span>Running the auth tests now.</span>
+              </div>
+            </div>
+            <div class="ph-input">Reply to the agent…</div>
+            <div class="ph-actions"><span class="btn solid">Send</span><span class="btn">Hold to talk</span><span class="btn">Recap</span></div>
+            <div class="ph-toggle"><span class="box"></span><span>Read new lines aloud</span></div>
+            <div class="ph-foot">Local and private · 127.0.0.1</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 11 · nothing leaves the mac -->
+      <section class="clip scene" id="s-local" data-start="@local.start@" data-duration="@local.dur@">
+        <div class="copy" style="left: 140px; top: 150px; width: 900px">
+          <p class="kicker" data-layout-ignore id="lo-kicker">09 / Nothing leaves the Mac</p>
+          <h1 class="headline" id="lo-head">Local by <em>construction.</em></h1>
+        </div>
+        <div class="checks" id="lo-checks" style="left: 140px; top: 400px; width: 860px">
+          <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 13l5 5L20 6" /></svg>No cloud calls</div>
+          <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 13l5 5L20 6" /></svg>No summary model</div>
+          <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 13l5 5L20 6" /></svg>No transcript upload</div>
+          <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 13l5 5L20 6" /></svg>No telemetry</div>
+        </div>
+        <div class="panel" id="lo-update" style="left: 1060px; top: 400px; width: 720px; font-size: 20px">
+          <span class="panel-label" data-layout-ignore>An update, verified before it lands</span>
+          <span style="display: block">01 · updates/latest.json</span>
+          <span style="display: block; margin-top: 10px">02 · sha256 of the zip</span>
+          <span style="display: block; margin-top: 10px">03 · codesign · Developer ID H4G8F4Q8D2</span>
+          <span style="display: block; margin-top: 10px">04 · swap, reopen, roll back on failure</span>
+          <span class="t-accent" style="display: block; margin-top: 18px">0.2.3 → 0.2.4</span>
+        </div>
+      </section>
+
+      <!-- 12 · start -->
+      <section class="clip scene" id="s-start" data-start="@start.start@" data-duration="@start.dur@">
+        <div class="end">
+          <svg class="mark" id="st-mark" viewBox="0 0 32 32" fill="none">
+            <rect width="32" height="32" rx="7" fill="#141b17" />
+            <g transform="translate(7 7)" fill="#a9d18e" stroke="#a9d18e">
+              <path d="M9 15C8.7 12.6 9.4 9.8 9.1 7.1" fill="none" stroke-width="1.25" stroke-linecap="round" />
+              <path d="M9 10.2C6.8 10.3 4.2 8.1 4.1 5.5C5.4 4.4 7.7 6.7 9 8.8Z" stroke="none" />
+              <path d="M9 11.7C11.2 11.5 13.6 9.7 13.9 7C12.6 6.2 10.8 8.5 9 10.3Z" stroke="none" />
+            </g>
+          </svg>
+          <div class="word" id="st-word">reezyn</div>
+          <div class="line" id="st-line">free · open source · macOS 13 or later</div>
+          <div class="cmd" id="st-cmd">reezyn.elastikmind.com</div>
+        </div>
+      </section>
+
+      <div id="captions">
+@CAPTIONS@
+      </div>
+    </div>
+
+    <script>
+      const S = @SCHEDULE@;
+      const tl = gsap.timeline({ paused: true });
+      const at = (id, offset = 0) => S[id].start + offset;
+      const line = (id, index) => at(id, S[id].lines[index] || 0);
+
+      const rise = (sel, time, dist = 20, dur = 0.55) =>
+        tl.fromTo(
+          sel,
+          { y: dist, opacity: 0 },
+          { y: 0, opacity: 1, duration: dur, ease: "power3.out" },
+          time
+        );
+      const wipe = (sel, time, dur = 0.75) =>
+        tl.fromTo(
+          sel,
+          { clipPath: "inset(0 0 105% 0)", y: 16 },
+          { clipPath: "inset(0 0 -12% 0)", y: 0, duration: dur, ease: "power4.out" },
+          time
+        );
+
+      // Deterministic waveform bars.
+      document.querySelectorAll(".wave").forEach((wave) => {
+        for (let i = 0; i < 44; i += 1) {
+          const bar = document.createElement("i");
+          const h = 8 + Math.round(34 * Math.abs(Math.sin(i * 0.7) * Math.cos(i * 0.21)));
+          bar.style.height = h + "px";
+          bar.style.opacity = 0.55 + 0.45 * Math.abs(Math.sin(i * 0.4));
+          wave.appendChild(bar);
+        }
+      });
+
+      // ---- 01 quiet
+      rise("#q-supp", at("quiet", 0.5), 14, 0.5);
+      ["#q0", "#q1", "#q2", "#q3", "#q4", "#q5"].forEach((sel, i) =>
+        tl.fromTo(sel, { opacity: 0.35, x: -10 }, { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" }, at("quiet", 0.3 + i * 0.3))
+      );
+      tl.fromTo("#q6", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" }, line("quiet", 1) - 0.35);
+      tl.fromTo("#q-said", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, line("quiet", 1) + 0.05);
+      tl.fromTo("#q-wave i", { scaleY: 0.2 }, { scaleY: 1, duration: 0.4, stagger: 0.012, ease: "power2.out", transformOrigin: "center" }, line("quiet", 1) + 0.15);
+
+      // ---- 02 pause
+      rise("#pa-kicker", at("pause", 0.08), 14, 0.45);
+      wipe("#pa-head", at("pause", 0.16));
+      tl.fromTo("#pa-pills .pill", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.07, ease: "power2.out" }, at("pause", 0.5));
+      tl.to("#pa-pills .pill", { opacity: 0.45, duration: 0.5, stagger: 0.04 }, line("pause", 1) - 0.2);
+      tl.fromTo("#pa-kept", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, line("pause", 1) + 0.35);
+      tl.fromTo("#pa-chips .chip", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.08, ease: "power2.out" }, line("pause", 1) + 1.2);
+
+      // ---- 03 path
+      rise("#pt-kicker", at("path", 0.08), 14, 0.45);
+      wipe("#pt-head", at("path", 0.16));
+      tl.fromTo("#pt-rule", { scaleX: 0 }, { scaleX: 1, duration: 1.1, ease: "power2.inOut" }, at("path", 0.6));
+      tl.fromTo("#pt-path .node", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.12, ease: "power3.out" }, at("path", 0.75));
+      tl.fromTo("#pt-chips .chip", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.08 }, at("path", 2.2));
+
+      // ---- 04 agents
+      rise("#ag-kicker", at("agents", 0.08), 14, 0.45);
+      wipe("#ag-head", at("agents", 0.16));
+      tl.fromTo("#ag-cards .card", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.08, ease: "power3.out" }, at("agents", 0.7));
+      tl.fromTo("#ag-emit", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, at("agents", 2.0));
+
+      // ---- 07 menu
+      tl.fromTo("#me-bar", { y: -34 }, { y: 0, duration: 0.5, ease: "power3.out" }, at("menu", 0.1));
+      rise("#me-kicker", at("menu", 0.2), 14, 0.45);
+      wipe("#me-head", at("menu", 0.28));
+      tl.fromTo("#me-panel", { opacity: 0, y: -22, scaleY: 0.94, transformOrigin: "top center" }, { opacity: 1, y: 0, scaleY: 1, duration: 0.55, ease: "power3.out" }, at("menu", 0.55));
+      tl.fromTo("#me-panel .mi", { opacity: 0, x: 10 }, { opacity: 1, x: 0, duration: 0.3, stagger: 0.04 }, at("menu", 0.7));
+      tl.to("#me-seed", { scale: 1.22, duration: 0.6, repeat: 6, yoyo: true, ease: "sine.inOut", transformOrigin: "center" }, at("menu", 2.6));
+      tl.fromTo("#me-cc", { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, line("menu", 1) - 0.1);
+      tl.fromTo("#me-cc .line", { opacity: 0 }, { opacity: 1, duration: 0.5, stagger: 0.1 }, line("menu", 1) + 0.1);
+      tl.fromTo("#me-cc .strip", { opacity: 0 }, { opacity: 1, duration: 0.4 }, line("menu", 1) + 1.4);
+      tl.fromTo("#me-hint", { opacity: 0 }, { opacity: 1, duration: 0.5 }, line("menu", 1) + 2.2);
+
+      // ---- 09 dictation
+      rise("#dc-kicker", at("dictation", 0.08), 14, 0.45);
+      wipe("#dc-head", at("dictation", 0.16));
+      tl.fromTo("#dc-term", { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, at("dictation", 0.45));
+      tl.fromTo("#dc-draft", { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: 1.1, ease: "steps(18)" }, line("dictation", 0) + 0.2);
+      tl.fromTo("#dc-caret", { opacity: 0 }, { opacity: 1, duration: 0.3, repeat: 5, yoyo: true, ease: "none" }, line("dictation", 0) + 0.2);
+      tl.fromTo("#dc-ask", { opacity: 0 }, { opacity: 1, duration: 0.45 }, at("dictation", 3.0));
+      tl.fromTo("#dc-steps .step", { opacity: 0, x: 16 }, { opacity: 1, x: 0, duration: 0.45, stagger: 0.5 }, at("dictation", 0.6));
+      tl.fromTo("#dc-ask .t-accent", { opacity: 0.35 }, { opacity: 1, duration: 0.4, repeat: 1, yoyo: true }, at("dictation", 4.2));
+
+      // ---- 10 remote
+      rise("#rm-kicker", at("remote", 0.08), 14, 0.45);
+      wipe("#rm-head", at("remote", 0.16));
+      tl.fromTo("#rm-phone", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" }, at("remote", 0.4));
+      tl.fromTo("#rm-list .step", { opacity: 0, x: -14 }, { opacity: 1, x: 0, duration: 0.45, stagger: 0.14 }, at("remote", 0.8));
+      tl.fromTo("#rm-phone .ph-card, #rm-phone .ph-actions, #rm-phone .ph-input, #rm-phone .ph-toggle", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.22, ease: "power2.out" }, at("remote", 0.9));
+      tl.fromTo("#rm-phone .ph-feed span", { opacity: 0, x: -8 }, { opacity: 1, x: 0, duration: 0.4, stagger: 0.7, ease: "power2.out" }, at("remote", 2.0));
+
+      // ---- 11 local
+      rise("#lo-kicker", at("local", 0.08), 14, 0.45);
+      wipe("#lo-head", at("local", 0.16));
+      tl.fromTo("#lo-checks .check", { opacity: 0, x: -16 }, { opacity: 1, x: 0, duration: 0.45, stagger: 0.12 }, at("local", 0.5));
+      tl.fromTo("#lo-update", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, line("local", 1) - 0.1);
+      tl.fromTo("#lo-update span", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.42, ease: "power2.out" }, line("local", 1) + 0.5);
+
+      // ---- 12 start
+      tl.fromTo("#st-mark", { opacity: 0, scale: 0.82 }, { opacity: 1, scale: 1, duration: 0.7, ease: "power3.out" }, at("start", 0.1));
+      tl.fromTo("#st-word", { opacity: 0, clipPath: "inset(0 100% 0 0)" }, { opacity: 1, clipPath: "inset(0 0% 0 0)", duration: 0.8, ease: "power3.out" }, at("start", 0.3));
+      tl.fromTo("#st-line", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.5 }, at("start", 0.8));
+      tl.fromTo("#st-cmd", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.5 }, at("start", 1.1));
+
+      window.__timelines["main"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

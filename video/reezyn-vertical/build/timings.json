@@ -1,0 +1,134 @@
+{
+  "total": 31.714,
+  "audio": "assets/audio/vo.wav",
+  "scenes": [
+    {
+      "id": "quiet",
+      "kicker": "01 / The quiet part",
+      "headline": "Your agent thinks <em>out loud.</em>",
+      "support": "the reasoning is already in the log",
+      "start": 0.0,
+      "end": 6.814,
+      "duration": 6.814
+    },
+    {
+      "id": "pause",
+      "kicker": "02 / One line at a time",
+      "headline": "It waits for <em>the pause.</em>",
+      "support": "700 ms debounce \u00b7 30 s dedupe",
+      "start": 6.764,
+      "end": 10.488,
+      "duration": 3.724
+    },
+    {
+      "id": "path",
+      "kicker": "03 / The signal path",
+      "headline": "No model <em>in the middle.</em>",
+      "support": "Kokoro \u00b7 on-device",
+      "start": 10.438,
+      "end": 13.994,
+      "duration": 3.556
+    },
+    {
+      "id": "dictation",
+      "kicker": "04 / Your turn",
+      "headline": "Reply without <em>the keyboard.</em>",
+      "support": "on-device speech",
+      "start": 13.944,
+      "end": 18.24,
+      "duration": 4.296
+    },
+    {
+      "id": "remote",
+      "kicker": "05 / Away from the desk",
+      "headline": "The session comes <em>with you.</em>",
+      "support": "Tailscale only \u00b7 loopback",
+      "start": 18.19,
+      "end": 21.818,
+      "duration": 3.628
+    },
+    {
+      "id": "local",
+      "kicker": "06 / Nothing leaves the Mac",
+      "headline": "Local by <em>construction.</em>",
+      "support": "no cloud \u00b7 no telemetry",
+      "start": 21.768,
+      "end": 25.141,
+      "duration": 3.373
+    },
+    {
+      "id": "start",
+      "kicker": "07 / Start",
+      "headline": "Then it just <em>talks.</em>",
+      "support": "free \u00b7 open source",
+      "start": 25.091,
+      "end": 31.714,
+      "duration": 6.623
+    }
+  ],
+  "sentences": [
+    {
+      "scene": "quiet",
+      "text": "Your coding agent thinks in full sentences, and shows you none of them.",
+      "start": 0.4,
+      "end": 4.614,
+      "duration": 4.214
+    },
+    {
+      "scene": "quiet",
+      "text": "You hear almost none of it.",
+      "start": 4.894,
+      "end": 6.514,
+      "duration": 1.619
+    },
+    {
+      "scene": "pause",
+      "text": "Reezyn waits for the pause, and keeps one thought.",
+      "start": 7.214,
+      "end": 10.188,
+      "duration": 2.974
+    },
+    {
+      "scene": "path",
+      "text": "Adapter, cleaner, then Kokoro, on your Mac.",
+      "start": 10.888,
+      "end": 13.694,
+      "duration": 2.806
+    },
+    {
+      "scene": "dictation",
+      "text": "Say Reezyn, and it types the draft. It never sends it.",
+      "start": 14.394,
+      "end": 17.94,
+      "duration": 3.546
+    },
+    {
+      "scene": "remote",
+      "text": "Away from the desk, the session is on your phone.",
+      "start": 18.64,
+      "end": 21.518,
+      "duration": 2.878
+    },
+    {
+      "scene": "local",
+      "text": "No cloud, no telemetry, no upload.",
+      "start": 22.218,
+      "end": 24.841,
+      "duration": 2.623
+    },
+    {
+      "scene": "start",
+      "text": "Free, open source, a minute to install.",
+      "start": 25.541,
+      "end": 28.164,
+      "duration": 2.623
+    },
+    {
+      "scene": "start",
+      "text": "Then it just talks.",
+      "start": 28.444,
+      "end": 29.814,
+      "duration": 1.369
+    }
+  ]
+}

@@ -1,0 +1,132 @@
+{
+  "voice": "af_heart",
+  "speed": 0.96,
+  "gap_s": 0.34,
+  "scene_gap_s": 0.95,
+  "lead_in_s": 0.7,
+  "tail_s": 2.2,
+  "scenes": [
+    {
+      "id": "quiet",
+      "kicker": "01 / The quiet part",
+      "headline": "Your coding agent <em>thinks out loud.</em>",
+      "support": "The reasoning is already in the log.",
+      "sentences": [
+        "A coding agent thinks in full sentences, and shows you almost none of them.",
+        "Reezyn reads that thinking, and says it out loud."
+      ]
+    },
+    {
+      "id": "pause",
+      "kicker": "02 / One line at a time",
+      "headline": "It waits for <em>the pause.</em>",
+      "support": "700 ms debounce · 9 s stale · 30 s dedupe",
+      "sentences": [
+        "Agents fire tool calls in bursts.",
+        "Reezyn waits for the pause, keeps the one thought worth hearing, and drops the backlog."
+      ]
+    },
+    {
+      "id": "path",
+      "kicker": "03 / The signal path",
+      "headline": "Six stations, <em>no model in the middle.</em>",
+      "support": "Kokoro · on-device · Apache 2.0",
+      "sentences": [
+        "Every event takes the same path.",
+        "An adapter reads the session log, the coalescer picks the burst, the cleaner strips the code, and Kokoro speaks it locally."
+      ]
+    },
+    {
+      "id": "agents",
+      "kicker": "04 / Six agents, one voice",
+      "headline": "Whatever you drive, <em>it listens.</em>",
+      "support": "hooks · rollout jsonl · SQLite · snapshots",
+      "sentences": [
+        "Claude Code, Codex, Gemini, Cursor, OpenCode and Freebuff are watched directly.",
+        "Anything else can emit an event of its own."
+      ]
+    },
+    {
+      "id": "spoken",
+      "kicker": "05 / What gets spoken",
+      "headline": "Cleaned for <em>the ear.</em>",
+      "support": "max_sentences = 2 · max_words = 42",
+      "sentences": [
+        "Code is stripped, paths go, and snake case becomes words.",
+        "A technical shorthand is spelled out, two sentences at most are kept, and if there is no reasoning at all, it names the file instead."
+      ]
+    },
+    {
+      "id": "voice",
+      "kicker": "06 / A voice you choose",
+      "headline": "Calm, or <em>brisk.</em>",
+      "support": "9 voices · 3 languages · 0.84 to 1.04×",
+      "sentences": [
+        "Nine voices, three paces, and language packs for English, Spanish and French.",
+        "A pack frames the agent's words in its own language, but it pronounces them, it does not translate them."
+      ]
+    },
+    {
+      "id": "menu",
+      "kicker": "07 / In the menu bar",
+      "headline": "The whole app is <em>one menu.</em>",
+      "support": "seedling · pause · skip · recap",
+      "sentences": [
+        "The seedling in the menu bar is the interface: pause, skip, the last six lines, and a recap of the session.",
+        "The CC viewer floats the current line over your editor, and ignores the pointer until you hold Option."
+      ]
+    },
+    {
+      "id": "memory",
+      "kicker": "08 / It remembers",
+      "headline": "Ask again, <em>hear what it settled.</em>",
+      "support": "~/.reezyn/projects · lexical · local",
+      "sentences": [
+        "Each project keeps a small ledger of what you asked and what the agent concluded.",
+        "Ask something you already settled, and Reezyn quotes the earlier answer first, once per prompt, and at most once every ninety seconds."
+      ]
+    },
+    {
+      "id": "dictation",
+      "kicker": "09 / Your turn",
+      "headline": "Reply without <em>the keyboard.</em>",
+      "support": "on-device speech · nothing written to disk",
+      "sentences": [
+        "Say Reezyn, and dictate.",
+        "It types the draft and never submits it.",
+        "Ready to send it, unless you end with send it now.",
+        "When a turn ends, it speaks the answer and reopens the microphone."
+      ]
+    },
+    {
+      "id": "remote",
+      "kicker": "10 / Away from the desk",
+      "headline": "The session comes <em>with you.</em>",
+      "support": "Tailscale only · loopback · hashed tokens",
+      "sentences": [
+        "Remote access publishes the same session to your phone, over Tailscale, and nowhere else.",
+        "Live lines, allow and deny, replies by text or voice, read aloud, and a recap."
+      ]
+    },
+    {
+      "id": "local",
+      "kicker": "11 / Nothing leaves the Mac",
+      "headline": "Local by <em>construction.</em>",
+      "support": "no cloud · no telemetry · no summary model",
+      "sentences": [
+        "No cloud calls, no telemetry, no summary model.",
+        "Updates are checked against a checksum and the same Developer ID before a single byte is swapped in."
+      ]
+    },
+    {
+      "id": "start",
+      "kicker": "12 / Start",
+      "headline": "Then it just <em>talks.</em>",
+      "support": "free · open source · macOS 13 or later",
+      "sentences": [
+        "Reezyn is free and open source, and installs in a minute.",
+        "Then it just talks."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,298 @@
+{
+  "total": 137.253,
+  "audio": "assets/audio/vo.wav",
+  "scenes": [
+    {
+      "id": "quiet",
+      "kicker": "01 / The quiet part",
+      "headline": "Your coding agent <em>thinks out loud.</em>",
+      "support": "The reasoning is already in the log.",
+      "start": 0.0,
+      "end": 9.039,
+      "duration": 9.039
+    },
+    {
+      "id": "pause",
+      "kicker": "02 / One line at a time",
+      "headline": "It waits for <em>the pause.</em>",
+      "support": "700 ms debounce \u00b7 9 s stale \u00b7 30 s dedupe",
+      "start": 9.039,
+      "end": 17.581,
+      "duration": 8.542
+    },
+    {
+      "id": "path",
+      "kicker": "03 / The signal path",
+      "headline": "Six stations, <em>no model in the middle.</em>",
+      "support": "Kokoro \u00b7 on-device \u00b7 Apache 2.0",
+      "start": 17.581,
+      "end": 28.462,
+      "duration": 10.881
+    },
+    {
+      "id": "agents",
+      "kicker": "04 / Six agents, one voice",
+      "headline": "Whatever you drive, <em>it listens.</em>",
+      "support": "hooks \u00b7 rollout jsonl \u00b7 SQLite \u00b7 snapshots",
+      "start": 28.462,
+      "end": 37.839,
+      "duration": 9.377
+    },
+    {
+      "id": "spoken",
+      "kicker": "05 / What gets spoken",
+      "headline": "Cleaned for <em>the ear.</em>",
+      "support": "max_sentences = 2 \u00b7 max_words = 42",
+      "start": 37.839,
+      "end": 50.947,
+      "duration": 13.108
+    },
+    {
+      "id": "voice",
+      "kicker": "06 / A voice you choose",
+      "headline": "Calm, or <em>brisk.</em>",
+      "support": "9 voices \u00b7 3 languages \u00b7 0.84 to 1.04\u00d7",
+      "start": 50.947,
+      "end": 63.401,
+      "duration": 12.454
+    },
+    {
+      "id": "menu",
+      "kicker": "07 / In the menu bar",
+      "headline": "The whole app is <em>one menu.</em>",
+      "support": "seedling \u00b7 pause \u00b7 skip \u00b7 recap",
+      "start": 63.401,
+      "end": 77.741,
+      "duration": 14.34
+    },
+    {
+      "id": "memory",
+      "kicker": "08 / It remembers",
+      "headline": "Ask again, <em>hear what it settled.</em>",
+      "support": "~/.reezyn/projects \u00b7 lexical \u00b7 local",
+      "start": 77.741,
+      "end": 92.008,
+      "duration": 14.267
+    },
+    {
+      "id": "dictation",
+      "kicker": "09 / Your turn",
+      "headline": "Reply without <em>the keyboard.</em>",
+      "support": "on-device speech \u00b7 nothing written to disk",
+      "start": 92.008,
+      "end": 105.201,
+      "duration": 13.193
+    },
+    {
+      "id": "remote",
+      "kicker": "10 / Away from the desk",
+      "headline": "The session comes <em>with you.</em>",
+      "support": "Tailscale only \u00b7 loopback \u00b7 hashed tokens",
+      "start": 105.201,
+      "end": 117.611,
+      "duration": 12.41
+    },
+    {
+      "id": "local",
+      "kicker": "11 / Nothing leaves the Mac",
+      "headline": "Local by <em>construction.</em>",
+      "support": "no cloud \u00b7 no telemetry \u00b7 no summary model",
+      "start": 117.611,
+      "end": 128.297,
+      "duration": 10.686
+    },
+    {
+      "id": "start",
+      "kicker": "12 / Start",
+      "headline": "Then it just <em>talks.</em>",
+      "support": "free \u00b7 open source \u00b7 macOS 13 or later",
+      "start": 128.297,
+      "end": 137.253,
+      "duration": 8.956
+    }
+  ],
+  "sentences": [
+    {
+      "scene": "quiet",
+      "text": "A coding agent thinks in full sentences, and shows you almost none of them.",
+      "start": 0.7,
+      "end": 5.233,
+      "duration": 4.533
+    },
+    {
+      "scene": "quiet",
+      "text": "Reezyn reads that thinking, and says it out loud.",
+      "start": 5.573,
+      "end": 8.539,
+      "duration": 2.967
+    },
+    {
+      "scene": "pause",
+      "text": "Agents fire tool calls in bursts.",
+      "start": 9.489,
+      "end": 11.809,
+      "duration": 2.32
+    },
+    {
+      "scene": "pause",
+      "text": "Reezyn waits for the pause, keeps the one thought worth hearing, and drops the backlog.",
+      "start": 12.149,
+      "end": 17.081,
+      "duration": 4.931
+    },
+    {
+      "scene": "path",
+      "text": "Every event takes the same path.",
+      "start": 18.031,
+      "end": 20.026,
+      "duration": 1.996
+    },
+    {
+      "scene": "path",
+      "text": "An adapter reads the session log, the coalescer picks the burst, the cleaner strips the code, and Kokoro speaks it locally.",
+      "start": 20.366,
+      "end": 27.962,
+      "duration": 7.596
+    },
+    {
+      "scene": "agents",
+      "text": "Claude Code, Codex, Gemini, Cursor, OpenCode and Freebuff are watched directly.",
+      "start": 28.912,
+      "end": 34.575,
+      "duration": 5.663
+    },
+    {
+      "scene": "agents",
+      "text": "Anything else can emit an event of its own.",
+      "start": 34.915,
+      "end": 37.339,
+      "duration": 2.424
+    },
+    {
+      "scene": "spoken",
+      "text": "Code is stripped, paths go, and snake case becomes words.",
+      "start": 38.289,
+      "end": 41.965,
+      "duration": 3.676
+    },
+    {
+      "scene": "spoken",
+      "text": "A technical shorthand is spelled out, two sentences at most are kept, and if there is no reasoning at all, it names the file instead.",
+      "start": 42.305,
+      "end": 50.447,
+      "duration": 8.142
+    },
+    {
+      "scene": "voice",
+      "text": "Nine voices, three paces, and language packs for English, Spanish and French.",
+      "start": 51.397,
+      "end": 56.273,
+      "duration": 4.876
+    },
+    {
+      "scene": "voice",
+      "text": "A pack frames the agent's words in its own language, but it pronounces them, it does not translate them.",
+      "start": 56.613,
+      "end": 62.901,
+      "duration": 6.288
+    },
+    {
+      "scene": "menu",
+      "text": "The seedling in the menu bar is the interface: pause, skip, the last six lines, and a recap of the session.",
+      "start": 63.851,
+      "end": 70.692,
+      "duration": 6.841
+    },
+    {
+      "scene": "menu",
+      "text": "The CC viewer floats the current line over your editor, and ignores the pointer until you hold Option.",
+      "start": 71.032,
+      "end": 77.241,
+      "duration": 6.209
+    },
+    {
+      "scene": "memory",
+      "text": "Each project keeps a small ledger of what you asked and what the agent concluded.",
+      "start": 78.191,
+      "end": 83.012,
+      "duration": 4.821
+    },
+    {
+      "scene": "memory",
+      "text": "Ask something you already settled, and Reezyn quotes the earlier answer first, once per prompt, and at most once every ninety seconds.",
+      "start": 83.352,
+      "end": 91.508,
+      "duration": 8.156
+    },
+    {
+      "scene": "dictation",
+      "text": "Say Reezyn, and dictate.",
+      "start": 92.458,
+      "end": 94.189,
+      "duration": 1.73
+    },
+    {
+      "scene": "dictation",
+      "text": "It types the draft and never submits it.",
+      "start": 94.529,
+      "end": 96.964,
+      "duration": 2.435
+    },
+    {
+      "scene": "dictation",
+      "text": "Ready to send it, unless you end with send it now.",
+      "start": 97.304,
+      "end": 100.235,
+      "duration": 2.932
+    },
+    {
+      "scene": "dictation",
+      "text": "When a turn ends, it speaks the answer and reopens the microphone.",
+      "start": 100.575,
+      "end": 104.701,
+      "duration": 4.126
+    },
+    {
+      "scene": "remote",
+      "text": "Remote access publishes the same session to your phone, over Tailscale, and nowhere else.",
+      "start": 105.651,
+      "end": 111.296,
+      "duration": 5.645
+    },
+    {
+      "scene": "remote",
+      "text": "Live lines, allow and deny, replies by text or voice, read aloud, and a recap.",
+      "start": 111.636,
+      "end": 117.111,
+      "duration": 5.475
+    },
+    {
+      "scene": "local",
+      "text": "No cloud calls, no telemetry, no summary model.",
+      "start": 118.061,
+      "end": 121.44,
+      "duration": 3.379
+    },
+    {
+      "scene": "local",
+      "text": "Updates are checked against a checksum and the same Developer ID before a single byte is swapped in.",
+      "start": 121.78,
+      "end": 127.797,
+      "duration": 6.017
+    },
+    {
+      "scene": "start",
+      "text": "Reezyn is free and open source, and installs in a minute.",
+      "start": 128.747,
+      "end": 132.406,
+      "duration": 3.66
+    },
+    {
+      "scene": "start",
+      "text": "Then it just talks.",
+      "start": 132.746,
+      "end": 134.103,
+      "duration": 1.357
+    }
+  ]
+}

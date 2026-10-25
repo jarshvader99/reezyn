@@ -5,6 +5,7 @@ AddDefaultCharset UTF-8
 AddType application/x-apple-diskimage .dmg
 AddType font/woff2 .woff2
 AddType video/mp4 .mp4
+AddType audio/mp4 .m4a
 AddType text/vtt .vtt
 AddType image/svg+xml .svg
 AddType application/xml .xml
@@ -19,7 +20,7 @@ ErrorDocument 404 /404.html
   <FilesMatch "\.(woff2)$">
     Header set Cache-Control "public, max-age=31536000, immutable"
   </FilesMatch>
-  <FilesMatch "\.(jpg|svg|mp4|vtt)$">
+  <FilesMatch "\.(jpg|svg|mp4|vtt|m4a)$">
     Header set Cache-Control "public, max-age=604800"
   </FilesMatch>
   <FilesMatch "\.dmg$">

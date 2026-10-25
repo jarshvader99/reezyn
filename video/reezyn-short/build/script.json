@@ -1,0 +1,98 @@
+{
+  "voice": "af_heart",
+  "speed": 0.96,
+  "gap_s": 0.3,
+  "scene_gap_s": 0.8,
+  "lead_in_s": 0.5,
+  "tail_s": 1.6,
+  "scenes": [
+    {
+      "id": "quiet",
+      "kicker": "01 / The quiet part",
+      "headline": "Your coding agent <em>thinks out loud.</em>",
+      "support": "The reasoning is already in the log.",
+      "sentences": [
+        "Your coding agent thinks in full sentences, and shows you almost none of them.",
+        "Reezyn reads that thinking out loud."
+      ]
+    },
+    {
+      "id": "pause",
+      "kicker": "02 / One line at a time",
+      "headline": "It waits for <em>the pause.</em>",
+      "support": "700 ms debounce · 9 s stale · 30 s dedupe",
+      "sentences": [
+        "Agents fire tool calls in bursts.",
+        "It waits for the pause, and keeps one thought."
+      ]
+    },
+    {
+      "id": "path",
+      "kicker": "03 / The signal path",
+      "headline": "Six stations, <em>no model in the middle.</em>",
+      "support": "Kokoro · on-device",
+      "sentences": [
+        "Adapter, coalescer, cleaner, then Kokoro, on your Mac."
+      ]
+    },
+    {
+      "id": "agents",
+      "kicker": "04 / Six agents, one voice",
+      "headline": "Whatever you drive, <em>it listens.</em>",
+      "support": "hooks · rollout jsonl · SQLite · snapshots",
+      "sentences": [
+        "Claude Code, Codex, Gemini, Cursor, OpenCode, Freebuff: watched directly."
+      ]
+    },
+    {
+      "id": "menu",
+      "kicker": "05 / In the menu bar",
+      "headline": "The whole app is <em>one menu.</em>",
+      "support": "seedling · pause · skip · recap",
+      "sentences": [
+        "Pause, skip, and a recap, in the menu bar.",
+        "The CC viewer floats the line over your editor."
+      ]
+    },
+    {
+      "id": "dictation",
+      "kicker": "06 / Your turn",
+      "headline": "Reply without <em>the keyboard.</em>",
+      "support": "on-device speech",
+      "sentences": [
+        "Say Reezyn, and dictate; it types the draft and never sends it.",
+        "When the turn ends it speaks the answer, and the mic reopens."
+      ]
+    },
+    {
+      "id": "remote",
+      "kicker": "07 / Away from the desk",
+      "headline": "The session comes <em>with you.</em>",
+      "support": "Tailscale only · loopback",
+      "sentences": [
+        "Away from the desk, the session is on your phone.",
+        "Over Tailscale, and nowhere else."
+      ]
+    },
+    {
+      "id": "local",
+      "kicker": "08 / Nothing leaves the Mac",
+      "headline": "Local by <em>construction.</em>",
+      "support": "no cloud · no telemetry",
+      "sentences": [
+        "No cloud, no telemetry, no summary model.",
+        "Updates are verified before they land."
+      ]
+    },
+    {
+      "id": "start",
+      "kicker": "09 / Start",
+      "headline": "Then it just <em>talks.</em>",
+      "support": "free · open source · macOS 13 or later",
+      "sentences": [
+        "Free, open source, a minute to install.",
+        "Then it just talks."
+      ]
+    }
+  ]
+}

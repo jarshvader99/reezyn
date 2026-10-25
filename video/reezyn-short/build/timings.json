@@ -1,0 +1,201 @@
+{
+  "total": 60.332,
+  "audio": "assets/audio/vo.wav",
+  "scenes": [
+    {
+      "id": "quiet",
+      "kicker": "01 / The quiet part",
+      "headline": "Your coding agent <em>thinks out loud.</em>",
+      "support": "The reasoning is already in the log.",
+      "start": 0.0,
+      "end": 8.062,
+      "duration": 8.062
+    },
+    {
+      "id": "pause",
+      "kicker": "02 / One line at a time",
+      "headline": "It waits for <em>the pause.</em>",
+      "support": "700 ms debounce \u00b7 9 s stale \u00b7 30 s dedupe",
+      "start": 8.062,
+      "end": 14.072,
+      "duration": 6.01
+    },
+    {
+      "id": "path",
+      "kicker": "03 / The signal path",
+      "headline": "Six stations, <em>no model in the middle.</em>",
+      "support": "Kokoro \u00b7 on-device",
+      "start": 14.072,
+      "end": 18.462,
+      "duration": 4.39
+    },
+    {
+      "id": "agents",
+      "kicker": "04 / Six agents, one voice",
+      "headline": "Whatever you drive, <em>it listens.</em>",
+      "support": "hooks \u00b7 rollout jsonl \u00b7 SQLite \u00b7 snapshots",
+      "start": 18.462,
+      "end": 24.763,
+      "duration": 6.301
+    },
+    {
+      "id": "menu",
+      "kicker": "05 / In the menu bar",
+      "headline": "The whole app is <em>one menu.</em>",
+      "support": "seedling \u00b7 pause \u00b7 skip \u00b7 recap",
+      "start": 24.763,
+      "end": 31.708,
+      "duration": 6.945
+    },
+    {
+      "id": "dictation",
+      "kicker": "06 / Your turn",
+      "headline": "Reply without <em>the keyboard.</em>",
+      "support": "on-device speech",
+      "start": 31.708,
+      "end": 40.614,
+      "duration": 8.906
+    },
+    {
+      "id": "remote",
+      "kicker": "07 / Away from the desk",
+      "headline": "The session comes <em>with you.</em>",
+      "support": "Tailscale only \u00b7 loopback",
+      "start": 40.614,
+      "end": 46.769,
+      "duration": 6.155
+    },
+    {
+      "id": "local",
+      "kicker": "08 / Nothing leaves the Mac",
+      "headline": "Local by <em>construction.</em>",
+      "support": "no cloud \u00b7 no telemetry",
+      "start": 46.769,
+      "end": 53.198,
+      "duration": 6.429
+    },
+    {
+      "id": "start",
+      "kicker": "09 / Start",
+      "headline": "Then it just <em>talks.</em>",
+      "support": "free \u00b7 open source \u00b7 macOS 13 or later",
+      "start": 53.198,
+      "end": 60.332,
+      "duration": 7.134
+    }
+  ],
+  "sentences": [
+    {
+      "scene": "quiet",
+      "text": "Your coding agent thinks in full sentences, and shows you almost none of them.",
+      "start": 0.5,
+      "end": 5.201,
+      "duration": 4.701
+    },
+    {
+      "scene": "quiet",
+      "text": "Reezyn reads that thinking out loud.",
+      "start": 5.501,
+      "end": 7.712,
+      "duration": 2.211
+    },
+    {
+      "scene": "pause",
+      "text": "Agents fire tool calls in bursts.",
+      "start": 8.512,
+      "end": 10.83,
+      "duration": 2.317
+    },
+    {
+      "scene": "pause",
+      "text": "It waits for the pause, and keeps one thought.",
+      "start": 11.13,
+      "end": 13.722,
+      "duration": 2.592
+    },
+    {
+      "scene": "path",
+      "text": "Adapter, coalescer, cleaner, then Kokoro, on your Mac.",
+      "start": 14.522,
+      "end": 18.112,
+      "duration": 3.591
+    },
+    {
+      "scene": "agents",
+      "text": "Claude Code, Codex, Gemini, Cursor, OpenCode, Freebuff: watched directly.",
+      "start": 18.912,
+      "end": 24.413,
+      "duration": 5.5
+    },
+    {
+      "scene": "menu",
+      "text": "Pause, skip, and a recap, in the menu bar.",
+      "start": 25.213,
+      "end": 28.098,
+      "duration": 2.885
+    },
+    {
+      "scene": "menu",
+      "text": "The CC viewer floats the line over your editor.",
+      "start": 28.398,
+      "end": 31.358,
+      "duration": 2.96
+    },
+    {
+      "scene": "dictation",
+      "text": "Say Reezyn, and dictate; it types the draft and never sends it.",
+      "start": 32.158,
+      "end": 36.371,
+      "duration": 4.213
+    },
+    {
+      "scene": "dictation",
+      "text": "When the turn ends it speaks the answer, and the mic reopens.",
+      "start": 36.671,
+      "end": 40.264,
+      "duration": 3.593
+    },
+    {
+      "scene": "remote",
+      "text": "Away from the desk, the session is on your phone.",
+      "start": 41.064,
+      "end": 43.942,
+      "duration": 2.879
+    },
+    {
+      "scene": "remote",
+      "text": "Over Tailscale, and nowhere else.",
+      "start": 44.242,
+      "end": 46.419,
+      "duration": 2.176
+    },
+    {
+      "scene": "local",
+      "text": "No cloud, no telemetry, no summary model.",
+      "start": 47.219,
+      "end": 50.209,
+      "duration": 2.99
+    },
+    {
+      "scene": "local",
+      "text": "Updates are verified before they land.",
+      "start": 50.509,
+      "end": 52.848,
+      "duration": 2.339
+    },
+    {
+      "scene": "start",
+      "text": "Free, open source, a minute to install.",
+      "start": 53.648,
+      "end": 56.275,
+      "duration": 2.627
+    },
+    {
+      "scene": "start",
+      "text": "Then it just talks.",
+      "start": 56.575,
+      "end": 57.932,
+      "duration": 1.357
+    }
+  ]
+}

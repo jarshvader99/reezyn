@@ -13,6 +13,9 @@ brag-output/
 site/downloads/
 site/updates/*.zip
 
+# a film's build/ holds its script and generators, not output
+!video/*/build/
+
 # the demo film's build output (the source and build scripts are tracked)
 video/*/renders/
 video/*/.hyperframes/

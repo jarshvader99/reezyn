@@ -1,0 +1,75 @@
+{
+  "voice": "af_heart",
+  "speed": 0.96,
+  "gap_s": 0.28,
+  "scene_gap_s": 0.7,
+  "lead_in_s": 0.4,
+  "tail_s": 1.2,
+  "scenes": [
+    {
+      "id": "quiet",
+      "kicker": "01 / The quiet part",
+      "headline": "Your agent thinks <em>out loud.</em>",
+      "support": "the reasoning is already in the log",
+      "sentences": [
+        "Your coding agent thinks in full sentences, and shows you none of them.",
+        "You hear almost none of it."
+      ]
+    },
+    {
+      "id": "pause",
+      "kicker": "02 / One line at a time",
+      "headline": "It waits for <em>the pause.</em>",
+      "support": "700 ms debounce · 30 s dedupe",
+      "sentences": [
+        "Reezyn waits for the pause, and keeps one thought."
+      ]
+    },
+    {
+      "id": "path",
+      "kicker": "03 / The signal path",
+      "headline": "No model <em>in the middle.</em>",
+      "support": "Kokoro · on-device",
+      "sentences": [
+        "Adapter, cleaner, then Kokoro, on your Mac."
+      ]
+    },
+    {
+      "id": "dictation",
+      "kicker": "04 / Your turn",
+      "headline": "Reply without <em>the keyboard.</em>",
+      "support": "on-device speech",
+      "sentences": [
+        "Say Reezyn, and it types the draft. It never sends it."
+      ]
+    },
+    {
+      "id": "remote",
+      "kicker": "05 / Away from the desk",
+      "headline": "The session comes <em>with you.</em>",
+      "support": "Tailscale only · loopback",
+      "sentences": [
+        "Away from the desk, the session is on your phone."
+      ]
+    },
+    {
+      "id": "local",
+      "kicker": "06 / Nothing leaves the Mac",
+      "headline": "Local by <em>construction.</em>",
+      "support": "no cloud · no telemetry",
+      "sentences": [
+        "No cloud, no telemetry, no upload."
+      ]
+    },
+    {
+      "id": "start",
+      "kicker": "07 / Start",
+      "headline": "Then it just <em>talks.</em>",
+      "support": "free · open source",
+      "sentences": [
+        "Free, open source, a minute to install.",
+        "Then it just talks."
+      ]
+    }
+  ]
+}
