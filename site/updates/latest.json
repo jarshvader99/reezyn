@@ -1,12 +1,15 @@
 {
-  "version": "0.2.4",
+  "version": "0.2.5",
   "channel": "stable",
   "min_macos": "13.0",
-  "published_at": "2026-10-25T13:34:48Z",
-  "url": "https://reezyn.elastikmind.com/updates/Reezyn-0.2.4.zip",
-  "sha256": "f6347fa5c9ae3441673c5f8634e45e6583b34539d462ce6dd0933955303adb97",
-  "size": 50288466,
+  "published_at": "2026-10-25T15:44:46Z",
+  "url": "https://reezyn.elastikmind.com/updates/Reezyn-0.2.5.zip",
+  "sha256": "29edeb55bf5b21a790cad66d71e333380cfbe8dad5d85ed2680cf643a778f4fa",
+  "size": 50292690,
   "notes": [
-    "fix: reopen the app after a CLI-initiated update"
+    "fix: reach Tailscale from the menu-bar app again",
+    "media: cut sixty-second and vertical films, and count downloads from the log",
+    "site: publish the two-minute demo, and add the MIT license",
+    "release: publish a GitHub release for every tag"
   ]
 }
