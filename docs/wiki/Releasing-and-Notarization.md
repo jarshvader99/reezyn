@@ -36,15 +36,38 @@ The script refuses to run on a dirty tree, then:
    server, which authenticates through the Hostinger extension.
 
 Nothing is pushed. The run ends with the exact `git push origin main
---follow-tags` to use once the site has been checked.
+--follow-tags` to use once the site has been checked — or with
+`--publish-release`, which pushes and creates the GitHub release in one step
+(see below).
 
 The manifest and the zip must be published together: an app that sees a version
 newer than itself will download exactly the URL and checksum that manifest
 names, and refuses anything that does not match.
 
 Flags: `--no-deploy` stops before step 7, `--no-notarize` signs only,
-`--skip-tests` skips step 2, and `--resume` finishes an interrupted run (see
-below).
+`--skip-tests` skips step 2, `--resume` finishes an interrupted run (see
+below), and `--publish-release` pushes and publishes to GitHub.
+
+## Publishing the GitHub release
+
+The release page is where people look first, so the last step is one command:
+
+```bash
+packaging/release.sh --publish-release
+```
+
+It pushes `main` and `v<version>`, then creates the GitHub release for the
+version in `pyproject.toml`, attaching `dist/Reezyn-<version>.dmg` and the
+update zip, with the same notes the feed carries. The newest release is marked
+latest, so the releases page shows the build people can download.
+
+Re-running is safe: an existing release is updated in place, and an asset that
+is already attached is left alone. Authentication is `GITHUB_TOKEN` or
+`GH_TOKEN` when set, otherwise the credential git already uses for github.com.
+The tag has to exist on origin before the release can be created, which is why
+the push and the publication are one command. Publishing on its own, after the
+fact, is the same command: it reads the version from `pyproject.toml` and skips
+the bump, build and deploy.
 
 ## If a release is interrupted
 

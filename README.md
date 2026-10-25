@@ -769,7 +769,9 @@ Notarization is resumable. The submission ID is recorded in `dist/.notary/`, so
 `packaging/notarize.sh dist/Reezyn-<version>.dmg` re-attaches to a submission
 that is still processing instead of uploading the disk image again, and an
 image that already carries its ticket is left untouched. `packaging/release.sh
---resume` finishes a release that was cut off part-way.
+--resume` finishes a release that was cut off part-way, and
+`packaging/release.sh --publish-release` pushes the commit and tag and publishes
+the GitHub release with the DMG attached.
 
 The test suite covers speech cleanup and excerpting, burst coalescing and
 deduplication, all six agent formats, hook installers, the cross-process

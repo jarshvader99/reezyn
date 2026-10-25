@@ -11,6 +11,9 @@
 #   --no-deploy     build and commit, but leave the site alone
 #   --no-notarize   sign only; Gatekeeper will reject the DMG elsewhere
 #   --skip-tests    commit without running the suite first
+#   --publish-release
+#                   push main and the tag, then publish the GitHub release with
+#                   the DMG and update zip attached; safe to re-run on its own
 #
 # Every step is idempotent and notarization is resumable, so a run that dies
 # part-way (a dropped upload, a closed terminal) is finished with --resume
@@ -28,9 +31,10 @@ DEPLOY=1
 NOTARIZE=1
 TESTS=1
 RESUME=0
+PUBLISH_RELEASE=0
 
 usage() {
-  sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'
   exit 2
 }
 
@@ -40,6 +44,7 @@ for arg in "$@"; do
     --no-deploy) DEPLOY=0 ;;
     --no-notarize) NOTARIZE=0 ;;
     --skip-tests) TESTS=0 ;;
+    --publish-release) PUBLISH_RELEASE=1 ;;
     -h|--help) usage ;;
     -*) echo "unknown flag: $arg" >&2; exit 2 ;;
     *) SPEC="$arg" ;;
@@ -48,6 +53,29 @@ done
 
 TMP="$(mktemp -d -t reezyn-release)"
 trap 'rm -rf "$TMP"' EXIT
+
+# Publishing on its own: the build is already tagged and pushed, so there is
+# nothing to bump, test or sign — just the push and the GitHub release.
+if [[ "$PUBLISH_RELEASE" -eq 1 && -z "$SPEC" && "$RESUME" -eq 0 ]]; then
+  VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml | head -1)"
+  if [[ -z "$VERSION" ]]; then
+    echo "Could not read the version from pyproject.toml" >&2
+    exit 1
+  fi
+  DMG="dist/Reezyn-$VERSION.dmg"
+  ZIP="dist/Reezyn-$VERSION.zip"
+  RELEASE_ARGS=("$VERSION" "--dmg=$DMG")
+  if [[ -f "$ZIP" ]]; then
+    RELEASE_ARGS+=("--zip=$ZIP")
+  fi
+  echo "==> Pushing main and v$VERSION"
+  git push origin main --follow-tags
+  echo "==> Publishing the GitHub release"
+  uv run python packaging/github_release.py publish "${RELEASE_ARGS[@]}"
+  echo
+  echo "Reezyn $VERSION is released on GitHub."
+  exit 0
+fi
 
 if [[ "$RESUME" -eq 1 ]]; then
   VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml | head -1)"
@@ -171,9 +199,26 @@ else
   echo "==> Skipped deploy. Upload site/ when ready."
 fi
 
+RELEASE_ARGS=("$VERSION" "--dmg=$DMG")
+if [[ -f "$ZIP" ]]; then
+  RELEASE_ARGS+=("--zip=$ZIP")
+fi
+
+if [[ "$PUBLISH_RELEASE" -eq 1 ]]; then
+  echo "==> Pushing main and v$VERSION"
+  git push origin main --follow-tags
+  echo "==> Publishing the GitHub release"
+  uv run python packaging/github_release.py publish "${RELEASE_ARGS[@]}"
+fi
+
 echo
 echo "Reezyn $VERSION released."
 echo "App: $PWD/dist/Reezyn.app"
 echo "DMG: $DMG"
 echo "SHA: $SHA"
-echo "Push with: git push origin main --follow-tags"
+if [[ "$PUBLISH_RELEASE" -eq 1 ]]; then
+  echo "GitHub: https://github.com/$(git remote get-url origin | sed -e 's#.*github.com[:/]##' -e 's#\.git$##')/releases/tag/v$VERSION"
+else
+  echo "Push with: git push origin main --follow-tags"
+  echo "Then publish the GitHub release: packaging/release.sh --publish-release"
+fi
