@@ -602,6 +602,12 @@ OpenCode's completed file list — the file is named instead:
 Multiple active sessions are kept separate: the most recently active session
 wins until it goes quiet.
 
+The audio is treated before it plays: a 35 Hz high-pass removes Kokoro's DC
+offset and subsonic rumble, a fixed 6 dB of makeup brings the model's quiet
+output up to a normal listening level, and peaks above 0.7 bend into a soft knee
+below full scale instead of clipping. The `afplay` fallback rounds to 16 bits
+with triangular dither rather than truncating.
+
 ## Privacy
 
 - Transcripts and rollouts are read locally.

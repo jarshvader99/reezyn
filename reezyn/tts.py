@@ -23,6 +23,15 @@ from .languages import pack_for_voice
 
 RELEASE = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1"
 TARGET_PEAK = 0.95
+# Kokoro's int8 model comes out around -25 dBFS RMS, which is quiet next to
+# anything else playing on the Mac. Six decibels of fixed makeup puts a line
+# near -20 dBFS without the level of one line drifting from the next: measured
+# across sentence lengths, the model's own RMS barely moves.
+MAKEUP_GAIN = 2.0
+# Above this the signal bends into a soft knee instead of being clipped or
+# turned down as a whole; speech peaks only reach it on emphatic words.
+KNEE = 0.7
+_PCM_RNG = np.random.default_rng()
 MODEL_FILES = {
     "int8": ("kokoro-v1.0.int8.onnx", f"{RELEASE}/kokoro-v1.0.int8.onnx"),
     "fp16": ("kokoro-v1.0.fp16.onnx", f"{RELEASE}/kokoro-v1.0.fp16.onnx"),
@@ -101,12 +110,14 @@ def _download(
 
 
 def _prepare_samples(audio: np.ndarray, sample_rate: int, volume: float) -> np.ndarray:
-    """Remove subsonic energy and keep the signal below full scale.
+    """Remove subsonic energy, lift the level, and stay below full scale.
 
     Kokoro's output has a small DC offset and measurable energy below 20 Hz.
     On small speakers that rumble eats headroom and can sound like distortion,
-    so the chunk is high-passed before the volume gain is applied. The peak
-    guard scales a chunk down instead of hard-clipping it.
+    so the chunk is high-passed first. The model is consistently quiet, so a
+    fixed makeup gain brings the line up to a usable level and the soft knee
+    keeps peaks under the ceiling without turning a whole chunk down over one
+    transient.
     """
 
     samples = np.asarray(audio, dtype=np.float32).reshape(-1)
@@ -115,12 +126,37 @@ def _prepare_samples(audio: np.ndarray, sample_rate: int, volume: float) -> np.n
     samples = np.nan_to_num(samples, nan=0.0, posinf=0.0, neginf=0.0)
     samples = _dc_block(samples, sample_rate)
 
-    gain = max(0.0, min(1.0, float(volume)))
-    peak = float(np.max(np.abs(samples)))
-    if peak > 0:
-        gain = min(gain, TARGET_PEAK / peak)
-    samples = (samples * gain).astype(np.float32, copy=False)
+    gain = max(0.0, min(1.0, float(volume))) * MAKEUP_GAIN
+    samples = _limit(samples * gain).astype(np.float32, copy=False)
     return _fade_edges(samples, sample_rate)
+
+
+def _limit(samples: np.ndarray) -> np.ndarray:
+    """A soft knee above ``KNEE`` that approaches ``TARGET_PEAK`` smoothly."""
+
+    magnitude = np.abs(samples)
+    if not bool(np.any(magnitude > KNEE)):
+        return samples
+    span = TARGET_PEAK - KNEE
+    over = (magnitude - KNEE) / span
+    bent = KNEE + span * np.tanh(over)
+    return np.where(magnitude > KNEE, np.sign(samples) * bent, samples)
+
+
+def _to_pcm16(samples: np.ndarray) -> np.ndarray:
+    """Round to 16 bits with triangular dither instead of truncating.
+
+    Truncation toward zero biases low-level tails and leaves quantisation
+    noise correlated with the signal, which is audible as a gritty edge on
+    quiet consonants. One least-significant bit of TPDF dither trades that for
+    a flat, inaudible noise floor.
+    """
+
+    dither = (_PCM_RNG.random(samples.size) - _PCM_RNG.random(samples.size)).astype(
+        np.float32
+    )
+    scaled = np.rint(samples * 32767.0 + dither)
+    return np.clip(scaled, -32768, 32767).astype(np.int16)
 
 
 def _fade_edges(samples: np.ndarray, sample_rate: int, seconds: float = 0.008) -> np.ndarray:
@@ -387,8 +423,7 @@ class KokoroSpeaker:
                 handle.setnchannels(1)
                 handle.setsampwidth(2)
                 handle.setframerate(sample_rate)
-                pcm = (samples * 32767.0).astype(np.int16)
-                handle.writeframes(pcm.tobytes())
+                handle.writeframes(_to_pcm16(samples).tobytes())
             with self._play_lock:
                 if stop.is_set():
                     return False
