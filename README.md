@@ -602,6 +602,10 @@ OpenCode's completed file list — the file is named instead:
 Multiple active sessions are kept separate: the most recently active session
 wins until it goes quiet.
 
+Long lines are synthesized a piece at a time — a sentence, or a clause when one
+sentence runs long — so the first words are ready after the first piece instead
+of after the whole thought. The pauses between pieces are added back as silence.
+
 The audio is treated before it plays: a 35 Hz high-pass removes Kokoro's DC
 offset and subsonic rumble, a fixed 6 dB of makeup brings the model's quiet
 output up to a normal listening level, and peaks above 0.7 bend into a soft knee

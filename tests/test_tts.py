@@ -2,7 +2,47 @@ from __future__ import annotations
 
 import numpy as np
 
-from reezyn.tts import MAKEUP_GAIN, _prepare_samples
+from reezyn.languages import DEFAULT_PACK
+from reezyn.tts import MAKEUP_GAIN, _prepare_samples, _speech_pieces
+
+
+def test_a_short_line_is_synthesized_as_one_piece():
+    text = "I'm checking what changed."
+    assert _speech_pieces(text, DEFAULT_PACK) == [text]
+
+
+def test_a_long_line_is_split_on_sentence_boundaries():
+    text = (
+        "The refresh path rotates the cookie every time. "
+        "But the old token is never invalidated, which is why it still works."
+    )
+    pieces = _speech_pieces(text, DEFAULT_PACK)
+
+    assert len(pieces) == 2
+    assert " ".join(pieces) == text
+    assert pieces[0].endswith(".")
+
+
+def test_one_long_sentence_is_split_on_its_clauses():
+    text = (
+        "The refresh path rotates the cookie but never invalidates the old token, "
+        "and that is why the stale session still works, which surprised me at first."
+    )
+    pieces = _speech_pieces(text, DEFAULT_PACK)
+
+    assert len(pieces) > 1
+    assert " ".join(pieces) == text
+    assert all(piece.strip() for piece in pieces)
+
+
+def test_each_piece_fits_the_word_budget():
+    text = " ".join(
+        ["The session middleware validates the refresh token here."] * 3
+    )
+    pieces = _speech_pieces(text, DEFAULT_PACK)
+
+    assert len(pieces) > 1
+    assert all(len(DEFAULT_PACK.word.findall(piece)) <= 18 for piece in pieces)
 
 
 def test_prepare_samples_removes_dc_and_keeps_headroom():

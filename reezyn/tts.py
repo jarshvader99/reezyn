@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 import queue
+import re
 import subprocess
 import tempfile
 import threading
@@ -19,7 +20,7 @@ from typing import Any
 import numpy as np
 
 from .config import SpeechConfig
-from .languages import pack_for_voice
+from .languages import LanguagePack, pack_for_voice
 
 RELEASE = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1"
 TARGET_PEAK = 0.95
@@ -31,6 +32,14 @@ MAKEUP_GAIN = 2.0
 # Above this the signal bends into a soft knee instead of being clipped or
 # turned down as a whole; speech peaks only reach it on emphatic words.
 KNEE = 0.7
+# Kokoro only splits a line at 510 phonemes, which is longer than anything
+# Reezyn says, so a line used to arrive as one batch after the whole thought
+# had been synthesized. Pieces are capped by words instead, so the first
+# sentence can play while the rest of the line is still being made.
+PIECE_WORDS = 18
+SENTENCE_PAUSE = 0.22
+CLAUSE_PAUSE = 0.08
+CLAUSE_SPLIT = re.compile(r"(?<=[,;:])\s+")
 _PCM_RNG = np.random.default_rng()
 MODEL_FILES = {
     "int8": ("kokoro-v1.0.int8.onnx", f"{RELEASE}/kokoro-v1.0.int8.onnx"),
@@ -157,6 +166,56 @@ def _to_pcm16(samples: np.ndarray) -> np.ndarray:
     )
     scaled = np.rint(samples * 32767.0 + dither)
     return np.clip(scaled, -32768, 32767).astype(np.int16)
+
+
+def _speech_pieces(
+    text: str, pack: LanguagePack, max_words: int = PIECE_WORDS
+) -> list[str]:
+    """Break a line into the pieces Kokoro should synthesize one at a time.
+
+    Sentences are the natural seam: each keeps its own prosody and the pause
+    between them is added back as silence. A single sentence longer than the
+    budget falls back to its clauses, which is the same seam the engine uses
+    when it splits a batch.
+    """
+
+    text = text.strip()
+    if not text or _word_count(text, pack) <= max_words:
+        return [text] if text else []
+
+    sentences = [
+        part.strip() for part in pack.sentence_split.split(text) if part.strip(" .!?")
+    ]
+    if len(sentences) == 1:
+        clauses = [
+            part.strip() for part in CLAUSE_SPLIT.split(text) if part.strip(" .!?")
+        ]
+        if len(clauses) > 1:
+            sentences = clauses
+
+    pieces: list[str] = []
+    current = ""
+    for sentence in sentences:
+        candidate = f"{current} {sentence}".strip()
+        if current and _word_count(candidate, pack) > max_words:
+            pieces.append(current)
+            current = sentence
+        else:
+            current = candidate
+    if current:
+        pieces.append(current)
+    return pieces or [text]
+
+
+def _with_pause(audio: np.ndarray, sample_rate: int, seconds: float) -> np.ndarray:
+    """Hold the seam between two pieces for as long as a sentence would."""
+
+    silence = np.zeros(int(max(1, sample_rate) * seconds), dtype=np.float32)
+    return np.concatenate([np.asarray(audio, dtype=np.float32), silence])
+
+
+def _word_count(text: str, pack: LanguagePack) -> int:
+    return len(pack.word.findall(text))
 
 
 def _fade_edges(samples: np.ndarray, sample_rate: int, seconds: float = 0.008) -> np.ndarray:
@@ -320,25 +379,44 @@ class KokoroSpeaker:
         output: queue.Queue[tuple[np.ndarray, int] | BaseException | None],
         stop: threading.Event,
     ) -> None:
+        async def put(audio: np.ndarray, sample_rate: int) -> None:
+            while not stop.is_set():
+                try:
+                    output.put((audio, sample_rate), timeout=0.1)
+                    return
+                except queue.Full:
+                    continue
+
         async def run() -> None:
             try:
-                stream = engine.create_stream(
-                    text,
-                    self.config.voice,
-                    speed=self.config.speed,
-                    lang=pack_for_voice(self.config.voice).kokoro_lang,
-                    sentence_pause=0.22,
-                    clause_pause=0.08,
-                )
-                async for audio, sample_rate in stream:
+                pack = pack_for_voice(self.config.voice)
+                pieces = _speech_pieces(text, pack)
+                for index, piece in enumerate(pieces):
                     if stop.is_set():
                         break
-                    while not stop.is_set():
-                        try:
-                            output.put((audio, sample_rate), timeout=0.1)
+                    stream = engine.create_stream(
+                        piece,
+                        self.config.voice,
+                        speed=self.config.speed,
+                        lang=pack.kokoro_lang,
+                        sentence_pause=SENTENCE_PAUSE,
+                        clause_pause=CLAUSE_PAUSE,
+                    )
+                    # One chunk of lookahead, so the pause after a piece lands
+                    # once, on its last chunk, instead of after every one.
+                    held: tuple[np.ndarray, int] | None = None
+                    async for audio, sample_rate in stream:
+                        if stop.is_set():
                             break
-                        except queue.Full:
-                            continue
+                        if held is not None:
+                            await put(*held)
+                        held = (audio, sample_rate)
+                    if held is None or stop.is_set():
+                        continue
+                    audio, sample_rate = held
+                    if index < len(pieces) - 1:
+                        audio = _with_pause(audio, sample_rate, SENTENCE_PAUSE)
+                    await put(audio, sample_rate)
             except BaseException as exc:
                 _put(output, SpeechError(str(exc)), stop)
             finally:
