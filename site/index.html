@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reezyn, your agent out loud</title>
+  <meta name="description" content="Reezyn reads your coding agent’s reasoning aloud, locally, in a calm voice. No cloud, no summary model, no transcript upload. For Apple silicon Macs.">
+  <link rel="canonical" href="https://reezyn.elastikmind.com/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Reezyn">
+  <meta property="og:title" content="Reezyn, your agent out loud">
+  <meta property="og:description" content="A local voice for your coding agent. Reezyn reads the reasoning it already writes, in a calm voice, on your Mac.">
+  <meta property="og:url" content="https://reezyn.elastikmind.com/">
+  <meta property="og:image" content="https://reezyn.elastikmind.com/assets/brag.jpg">
+  <meta property="og:image:width" content="1920">
+  <meta property="og:image:height" content="1080">
+  <meta property="og:image:alt" content="The Reezyn film: a menu bar dropdown over a dark terminal, with the line: Reezyn reads the reasoning it already writes.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Reezyn, your agent out loud">
+  <meta name="twitter:description" content="A local voice for your coding agent. Reezyn reads the reasoning it already writes, in a calm voice, on your Mac.">
+  <meta name="twitter:image" content="https://reezyn.elastikmind.com/assets/brag.jpg">
+  <meta name="twitter:image:alt" content="The Reezyn film: a menu bar dropdown over a dark terminal, with the line: Reezyn reads the reasoning it already writes.">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="assets/fonts/rethink-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/hanken-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/brag.jpg" as="image" fetchpriority="high">
+  <link rel="stylesheet" href="styles.css">
+  <script>document.documentElement.classList.add('js')</script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-head">
+    <div class="site-head-inner">
+      <a class="brand" href="#top" aria-label="Reezyn, back to top">
+        <svg class="brand-mark" viewBox="0 0 18 18" aria-hidden="true">
+          <path d="M9 15C8.7 12.6 9.4 9.8 9.1 7.1" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+          <path d="M9 10.2C6.8 10.3 4.2 8.1 4.1 5.5C5.4 4.4 7.7 6.7 9 8.8Z" fill="currentColor"/>
+          <path d="M9 11.7C11.2 11.5 13.6 9.7 13.9 7C12.6 6.2 10.8 8.5 9 10.3Z" fill="currentColor"/>
+        </svg>
+        <span class="brand-word">reezyn</span>
+      </a>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="#hear">What you hear</a>
+        <a href="#remote">Remote</a>
+        <a href="#download">Download</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="shell">
+      <aside class="rail" aria-label="Session">
+        <span class="rail-runtime">24s</span>
+        <nav class="rail-nav" aria-label="Session cues">
+          <a class="rail-link" href="#top" aria-label="00:00, Your agent, out loud"><span class="rail-tick" aria-hidden="true"></span><time datetime="PT0S">00:00</time></a>
+          <a class="rail-link" href="#hear" aria-label="00:03, The reasoning, spoken"><span class="rail-tick" aria-hidden="true"></span><time datetime="PT3S">00:03</time></a>
+          <a class="rail-link" href="#local" aria-label="00:07, The reasoning stays on your Mac"><span class="rail-tick" aria-hidden="true"></span><time datetime="PT7S">00:07</time></a>
+          <a class="rail-link" href="#talk" aria-label="00:13, Ask without the keyboard"><span class="rail-tick" aria-hidden="true"></span><time datetime="PT13S">00:13</time></a>
+          <a class="rail-link" href="#remote" aria-label="00:17, The session follows you"><span class="rail-tick" aria-hidden="true"></span><time datetime="PT17S">00:17</time></a>
+          <a class="rail-link" href="#agents" aria-label="00:21, Six agents, one voice"><span class="rail-tick" aria-hidden="true"></span><time datetime="PT21S">00:21</time></a>
+          <a class="rail-link" href="#download" aria-label="00:24, Install in three steps"><span class="rail-tick" aria-hidden="true"></span><time datetime="PT24S">00:24</time></a>
+        </nav>
+        <span class="rail-foot">demo</span>
+      </aside>
+
+        <section class="hero" id="top" aria-labelledby="hero-title">
+          <div class="hero-grid">
+            <div class="hero-copy">
+              <h1 id="hero-title">Your agent,<br>out loud.</h1>
+              <p class="hero-lede">Reezyn reads the reasoning it already writes, locally, in a calm voice.</p>
+              <div class="hero-actions">
+                <a class="button button-primary" href="downloads/Reezyn-0.1.0.dmg" download>
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 15V3"/><path d="m7 10 5 5 5-5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  </svg>
+                  Download for macOS
+                </a>
+              </div>
+              <p class="hero-fine">Apple silicon. macOS 13 or later. 55 MB.</p>
+            </div>
+
+            <figure class="hero-film">
+              <div class="film-frame">
+                <video id="film" class="film" poster="assets/brag.jpg" preload="none" controls playsinline width="1920" height="1080" aria-label="A 24-second film of Reezyn narrating a coding agent’s reasoning, then taking a spoken command and showing the same session on a phone.">
+                  <source src="assets/brag.mp4" type="video/mp4">
+                  <track kind="captions" src="assets/captions.vtt" srclang="en" label="English" default>
+                </video>
+                <button class="play-overlay" type="button" aria-label="Play the 24-second film with sound">
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M8 5.4v13.2L19 12 8 5.4Z"/></svg>
+                </button>
+              </div>
+              <figcaption class="film-caption">
+                <span class="film-runtime">24 seconds. Real app. Sound on.</span>
+                <details class="transcript">
+                  <summary>Read the transcript</summary>
+                  <ol class="transcript-lines">
+                    <li><time datetime="PT3S">00:03</time><span class="transcript-who">Agent</span><span class="transcript-line">&ldquo;I’ll start by reading the session middleware.&rdquo;</span></li>
+                    <li><time datetime="PT7S">00:07</time><span class="transcript-who">Agent</span><span class="transcript-line">&ldquo;The refresh path is rotating the cookie but not invalidating the old token.&rdquo;</span></li>
+                    <li><time datetime="PT13S">00:13</time><span class="transcript-who">You</span><span class="transcript-line">&ldquo;Reezyn, rerun the auth tests, send it now.&rdquo;</span></li>
+                    <li><time datetime="PT17S">00:17</time><span class="transcript-who">Agent</span><span class="transcript-line">&ldquo;The tests confirm the old token is accepted. I’ll update the validation to compare token versions.&rdquo;</span></li>
+                  </ol>
+                </details>
+              </figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section class="section hear" id="hear" aria-labelledby="hear-title">
+          <div class="section-grid">
+            <figure class="figure-col hear-media">
+              <img class="film-still" src="assets/film-reasoning-full.jpg" width="1260" height="708" loading="lazy" decoding="async" alt="The terminal reasoning line: The refresh path is rotating the cookie but not invalidating the old token, followed by the tool call Bash npm test -- auth.">
+              <figcaption>The next line, in the terminal, 00:08.</figcaption>
+            </figure>
+            <div class="copy-col">
+              <h2 id="hear-title">The reasoning, spoken.</h2>
+              <blockquote class="pullquote">
+                <p>&ldquo;I’ll start by reading the session middleware.&rdquo;</p>
+                <footer>Agent, <time datetime="PT3S">00:03</time>. Demo session.</footer>
+              </blockquote>
+              <p class="section-lede">Not a summary. The line the agent already wrote in its session log.</p>
+              <figure class="waveform">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 64" class="waveform-svg" width="560" height="64" role="presentation" focusable="false">
+  <g fill="currentColor"><rect x="0" y="28.0" width="4" height="8" rx="1.4"/><rect x="7" y="24.0" width="4" height="16" rx="1.4"/><rect x="14" y="21.5" width="4" height="21" rx="1.4"/><rect x="21" y="22.0" width="4" height="20" rx="1.4"/><rect x="28" y="23.5" width="4" height="17" rx="1.4"/><rect x="35" y="25.0" width="4" height="14" rx="1.4"/><rect x="42" y="27.0" width="4" height="10" rx="1.4"/><rect x="49" y="28.0" width="4" height="8" rx="1.4"/><rect x="56" y="25.0" width="4" height="14" rx="1.4"/><rect x="63" y="13.0" width="4" height="38" rx="1.4"/><rect x="70" y="16.0" width="4" height="32" rx="1.4"/><rect x="77" y="19.0" width="4" height="26" rx="1.4"/><rect x="84" y="13.0" width="4" height="38" rx="1.4"/><rect x="91" y="14.0" width="4" height="36" rx="1.4"/><rect x="98" y="14.5" width="4" height="35" rx="1.4"/><rect x="105" y="13.0" width="4" height="38" rx="1.4"/><rect x="112" y="15.5" width="4" height="33" rx="1.4"/><rect x="119" y="11.5" width="4" height="41" rx="1.4"/><rect x="126" y="11.5" width="4" height="41" rx="1.4"/><rect x="133" y="15.0" width="4" height="34" rx="1.4"/><rect x="140" y="19.0" width="4" height="26" rx="1.4"/><rect x="147" y="22.0" width="4" height="20" rx="1.4"/><rect x="154" y="22.0" width="4" height="20" rx="1.4"/><rect x="161" y="23.5" width="4" height="17" rx="1.4"/><rect x="168" y="25.5" width="4" height="13" rx="1.4"/><rect x="175" y="13.0" width="4" height="38" rx="1.4"/><rect x="182" y="15.0" width="4" height="34" rx="1.4"/><rect x="189" y="10.5" width="4" height="43" rx="1.4"/><rect x="196" y="14.5" width="4" height="35" rx="1.4"/><rect x="203" y="10.5" width="4" height="43" rx="1.4"/><rect x="210" y="14.5" width="4" height="35" rx="1.4"/><rect x="217" y="16.0" width="4" height="32" rx="1.4"/><rect x="224" y="18.5" width="4" height="27" rx="1.4"/><rect x="231" y="25.5" width="4" height="13" rx="1.4"/><rect x="238" y="14.5" width="4" height="35" rx="1.4"/><rect x="245" y="10.5" width="4" height="43" rx="1.4"/><rect x="252" y="2.0" width="4" height="60" rx="1.4"/><rect x="259" y="8.5" width="4" height="47" rx="1.4"/><rect x="266" y="12.5" width="4" height="39" rx="1.4"/><rect x="273" y="18.0" width="4" height="28" rx="1.4"/><rect x="280" y="17.5" width="4" height="29" rx="1.4"/><rect x="287" y="24.5" width="4" height="15" rx="1.4"/><rect x="294" y="27.0" width="4" height="10" rx="1.4"/><rect x="301" y="28.0" width="4" height="8" rx="1.4"/><rect x="308" y="19.0" width="4" height="26" rx="1.4"/><rect x="315" y="7.0" width="4" height="50" rx="1.4"/><rect x="322" y="14.5" width="4" height="35" rx="1.4"/><rect x="329" y="19.5" width="4" height="25" rx="1.4"/><rect x="336" y="13.0" width="4" height="38" rx="1.4"/><rect x="343" y="13.5" width="4" height="37" rx="1.4"/><rect x="350" y="19.0" width="4" height="26" rx="1.4"/><rect x="357" y="22.5" width="4" height="19" rx="1.4"/><rect x="364" y="28.0" width="4" height="8" rx="1.4"/><rect x="371" y="13.0" width="4" height="38" rx="1.4"/><rect x="378" y="9.0" width="4" height="46" rx="1.4"/><rect x="385" y="16.0" width="4" height="32" rx="1.4"/><rect x="392" y="20.0" width="4" height="24" rx="1.4"/><rect x="399" y="16.5" width="4" height="31" rx="1.4"/><rect x="406" y="17.5" width="4" height="29" rx="1.4"/><rect x="413" y="16.5" width="4" height="31" rx="1.4"/><rect x="420" y="9.5" width="4" height="45" rx="1.4"/><rect x="427" y="14.0" width="4" height="36" rx="1.4"/><rect x="434" y="10.0" width="4" height="44" rx="1.4"/><rect x="441" y="13.5" width="4" height="37" rx="1.4"/><rect x="448" y="15.5" width="4" height="33" rx="1.4"/><rect x="455" y="14.5" width="4" height="35" rx="1.4"/><rect x="462" y="22.0" width="4" height="20" rx="1.4"/><rect x="469" y="22.0" width="4" height="20" rx="1.4"/><rect x="476" y="14.5" width="4" height="35" rx="1.4"/><rect x="483" y="14.5" width="4" height="35" rx="1.4"/><rect x="490" y="13.5" width="4" height="37" rx="1.4"/><rect x="497" y="8.0" width="4" height="48" rx="1.4"/><rect x="504" y="10.5" width="4" height="43" rx="1.4"/><rect x="511" y="16.0" width="4" height="32" rx="1.4"/><rect x="518" y="15.5" width="4" height="33" rx="1.4"/><rect x="525" y="15.5" width="4" height="33" rx="1.4"/><rect x="532" y="14.5" width="4" height="35" rx="1.4"/><rect x="539" y="21.5" width="4" height="21" rx="1.4"/><rect x="546" y="29.5" width="4" height="5" rx="1.4"/><rect x="553" y="30.5" width="4" height="3" rx="1.4"/></g>
+</svg>
+                <figcaption>The film’s audio, 24 seconds.</figcaption>
+              </figure>
+            </div>
+          </div>
+        </section>
+
+        <section class="section local band-cream" id="local" aria-labelledby="local-title">
+          <div class="section-grid">
+            <div class="copy-col">
+              <h2 id="local-title">The reasoning stays on your Mac.</h2>
+              <dl class="proof-list">
+                <div class="proof">
+                  <dt>Local by design.</dt>
+                  <dd>Nothing leaves this Mac.</dd>
+                </div>
+                <div class="proof">
+                  <dt>The agent’s words.</dt>
+                  <dd>No summary model rewrites them.</dd>
+                </div>
+                <div class="proof">
+                  <dt>Nothing uploaded.</dt>
+                  <dd>It stays on the Mac.</dd>
+                </div>
+                <div class="proof">
+                  <dt>Off the record.</dt>
+                  <dd>No account, no analytics.</dd>
+                </div>
+              </dl>
+              <p class="section-cue"><time datetime="PT7S">00:07</time>, demo session</p>
+            </div>
+            <figure class="figure-col local-media">
+              <div class="diagram-panel">
+                <p class="diagram-label">This Mac</p>
+                <div class="diagram-path">
+                  <div class="diagram-node">
+                    <span class="diagram-title">Agent log</span>
+                  </div>
+                  <span class="diagram-arrow" aria-hidden="true"></span>
+                  <div class="diagram-node is-key">
+                    <span class="diagram-title">Reezyn</span>
+                  </div>
+                  <span class="diagram-arrow" aria-hidden="true"></span>
+                  <div class="diagram-node">
+                    <span class="diagram-title">Speaker</span>
+                  </div>
+                </div>
+              </div>
+              <p class="diagram-outside">No network</p>
+              <figcaption>How a line moves, without leaving the Mac.</figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section class="section talk" id="talk" aria-labelledby="talk-title">
+          <div class="section-grid">
+            <div class="copy-col">
+              <h2 id="talk-title">Ask without the keyboard.</h2>
+              <p class="section-lede">Say it. Reezyn types it. Nothing sends until you say so.</p>
+              <blockquote class="pullquote quote-you">
+                <p>&ldquo;Reezyn, rerun the auth tests, send it now.&rdquo;</p>
+                <footer>You, <time datetime="PT13S">00:13</time>.</footer>
+              </blockquote>
+              <p class="ui-line">Listening: &ldquo;rerun the auth tests, send it now&rdquo;</p>
+            </div>
+            <figure class="figure-col talk-media">
+              <img class="film-still" src="assets/film-command.jpg" width="640" height="300" loading="lazy" decoding="async" alt="The terminal after Reezyn typed rerun the auth tests at the prompt.">
+              <figcaption>Typed, not sent.</figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section class="section remote" id="remote" aria-labelledby="remote-title">
+          <div class="section-grid">
+            <figure class="figure-col remote-media">
+              <img class="film-still film-still-phone" src="assets/film-phone.jpg" width="580" height="580" loading="lazy" decoding="async" alt="The Reezyn remote page on a phone, showing the agent waiting to edit src/auth/session.ts, with Allow and Deny.">
+              <figcaption>The remote page, mid-session.</figcaption>
+            </figure>
+            <div class="copy-col">
+              <h2 id="remote-title">The session follows you.</h2>
+              <p class="section-lede">The page lives on your tailnet. Off by default. No public port.</p>
+              <ul class="remote-list">
+                <li>Allow or deny a waiting agent.</li>
+                <li>Reply by text or voice.</li>
+                <li>Ask for a recap.</li>
+              </ul>
+              <p class="section-cue"><time datetime="PT17S">00:17</time>, demo session</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="section agents" id="agents" aria-labelledby="agents-title">
+          <h2 id="agents-title">Six agents, one voice.</h2>
+          <table class="agent-table">
+            <caption class="visually-hidden">How each agent connects to Reezyn</caption>
+            <thead>
+              <tr><th scope="col">Agent</th><th scope="col">Connection</th></tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row">Claude Code</th><td>Hook</td></tr>
+              <tr><th scope="row">Gemini CLI</th><td>Hook</td></tr>
+              <tr><th scope="row">Codex CLI</th><td>Watched</td></tr>
+              <tr><th scope="row">Cursor</th><td>Watched</td></tr>
+              <tr><th scope="row">OpenCode</th><td>Watched</td></tr>
+              <tr><th scope="row">Freebuff</th><td>Watched</td></tr>
+            </tbody>
+          </table>
+          <p class="section-cue"><time datetime="PT21S">00:21</time>, demo session</p>
+        </section>
+
+        <section class="section install band-moss" id="download" aria-labelledby="download-title">
+          <h2 id="download-title">Take the session home.</h2>
+          <ol class="steps">
+            <li class="step">
+              <span class="step-num" aria-hidden="true">1</span>
+              <div class="step-body">
+                <h3>Download the disk image.</h3>
+                <p>Drag Reezyn to Applications. It bundles Python.</p>
+              </div>
+              <p class="step-detail"><span>55 MB</span><span>Signed and notarized</span></p>
+            </li>
+            <li class="step">
+              <span class="step-num" aria-hidden="true">2</span>
+              <div class="step-body">
+                <h3>Give it a voice.</h3>
+                <p>Choose Download voice model&hellip; Kokoro runs locally.</p>
+              </div>
+              <p class="step-detail"><span>142 MB</span><span>First run</span></p>
+            </li>
+            <li class="step">
+              <span class="step-num" aria-hidden="true">3</span>
+              <div class="step-body">
+                <h3>Connect your agent.</h3>
+                <p>Install agent hooks for Claude Code or Gemini CLI. The other four need no setup.</p>
+              </div>
+            </li>
+          </ol>
+
+          <div class="download-block">
+            <a class="button button-primary" href="downloads/Reezyn-0.1.0.dmg" download>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 15V3"/><path d="m7 10 5 5 5-5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              </svg>
+              Download Reezyn
+            </a>
+            <p class="download-fine">Version 0.1.0. Apple silicon. macOS 13+.</p>
+            <details class="checksum">
+              <summary>SHA-256 checksum</summary>
+              <code>1cf0206e3cacf6480022a3afc1f45e668a84fb883dc0e7412e0e1ee7bc1fa220</code>
+            </details>
+            <p class="support-line">Support: <a href="mailto:support@elastikmind.com">support@elastikmind.com</a>.</p>
+          </div>
+          <p class="section-cue"><time datetime="PT24S">00:24</time>, after the film</p>
+        </section>
+  </main>
+
+  <footer class="site-foot">
+    <div class="site-foot-inner">
+      <div class="foot-brand">
+        <a class="brand" href="#top" aria-label="Reezyn, back to top">
+          <svg class="brand-mark" viewBox="0 0 18 18" aria-hidden="true">
+            <path d="M9 15C8.7 12.6 9.4 9.8 9.1 7.1" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+            <path d="M9 10.2C6.8 10.3 4.2 8.1 4.1 5.5C5.4 4.4 7.7 6.7 9 8.8Z" fill="currentColor"/>
+            <path d="M9 11.7C11.2 11.5 13.6 9.7 13.9 7C12.6 6.2 10.8 8.5 9 10.3Z" fill="currentColor"/>
+          </svg>
+          <span class="brand-word">reezyn</span>
+        </a>
+        <p class="foot-by">Reezyn by ElastikMind.</p>
+        <p class="foot-tag">A calm, local narrator for coding agents on macOS.</p>
+      </div>
+      <div class="foot-links">
+        <a href="mailto:support@elastikmind.com">support@elastikmind.com</a>
+        <a href="#top">Back to top</a>
+      </div>
+      <div class="foot-meta">
+        <p>No analytics. No cookies.</p>
+        <p>© 2026 ElastikMind.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    (() => {
+      const film = document.getElementById('film');
+      const overlay = document.querySelector('.play-overlay');
+      if (!film || !overlay) return;
+      const setPlaying = (playing) => {
+        overlay.hidden = playing;
+        document.documentElement.classList.toggle('film-playing', playing);
+      };
+      overlay.addEventListener('click', () => {
+        film.play();
+      });
+      film.addEventListener('play', () => setPlaying(true));
+      film.addEventListener('pause', () => setPlaying(false));
+      film.addEventListener('ended', () => setPlaying(false));
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+Options -Indexes
+DirectoryIndex index.html
+AddDefaultCharset UTF-8
+
+AddType application/x-apple-diskimage .dmg
+AddType font/woff2 .woff2
+AddType video/mp4 .mp4
+AddType text/vtt .vtt
+AddType image/svg+xml .svg
+AddType application/xml .xml
+
+ErrorDocument 404 /404.html
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  <FilesMatch "\.(woff2)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  <FilesMatch "\.(jpg|svg|mp4|vtt)$">
+    Header set Cache-Control "public, max-age=604800"
+  </FilesMatch>
+  <FilesMatch "\.dmg$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+    Header set Content-Disposition "attachment"
+  </FilesMatch>
+  <FilesMatch "\.(html|css|txt|xml)$">
+    Header set Cache-Control "public, max-age=0, must-revalidate"
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTPS} !=on
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>

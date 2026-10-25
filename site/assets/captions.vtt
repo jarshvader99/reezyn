@@ -1,0 +1,13 @@
+WEBVTT
+
+00:00:03.600 --> 00:00:05.750
+I'll start by reading the session middleware.
+
+00:00:07.600 --> 00:00:12.450
+The refresh path is rotating the cookie but not invalidating the old token.
+
+00:00:13.550 --> 00:00:16.780
+Reezyn, rerun the auth tests, send it now.
+
+00:00:17.150 --> 00:00:23.600
+The tests confirm the old token is accepted. I'll update the validation to compare token versions.
