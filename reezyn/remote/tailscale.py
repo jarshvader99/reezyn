@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import shutil
 import subprocess
@@ -45,9 +46,24 @@ def cli() -> str | None:
 
 
 def _is_executable(path: str) -> bool:
-    import os
-
     return os.path.isfile(path) and os.access(path, os.X_OK)
+
+
+def _child_env() -> dict[str, str]:
+    """The environment the CLI needs to talk to the running Tailscale app.
+
+    The macOS bundle ships a GUI client, not a daemon client: without a terminal
+    in its environment it assumes it was opened from Finder, tries to start a
+    second copy of the app, and fails. Reezyn is a GUI app as well, so it hands
+    its children exactly that terminal-less environment and every call came back
+    as plain text. ``TERM`` is what the CLI reads to decide it is being driven
+    from a shell, and it is the only thing added here.
+    """
+
+    env = dict(os.environ)
+    if not env.get("TERM"):
+        env["TERM"] = "xterm-256color"
+    return env
 
 
 def _run(args: list[str], timeout: float = 12.0) -> subprocess.CompletedProcess[str]:
@@ -60,6 +76,7 @@ def _run(args: list[str], timeout: float = 12.0) -> subprocess.CompletedProcess[
         text=True,
         timeout=timeout,
         check=False,
+        env=_child_env(),
     )
 
 
@@ -80,7 +97,9 @@ def status() -> dict[str, Any]:
     try:
         raw = json.loads(result.stdout or "{}")
     except json.JSONDecodeError:
-        return {"available": True, "running": False, "reason": "Could not read tailscale status."}
+        # A GUI-client failure exits 0 and prints prose on stdout, so the exit
+        # status says nothing. Show what the CLI said instead of a shrug.
+        return {"available": True, "running": False, "reason": _cli_text(result)}
     self_info = raw.get("Self") if isinstance(raw.get("Self"), dict) else {}
     dns = str(self_info.get("DNSName") or "").rstrip(".")
     ips = self_info.get("TailscaleIPs") or []
@@ -182,6 +201,21 @@ def publish(port: int) -> dict[str, Any]:
         "reason": "" if url else "Serve started but no HTTPS name was found.",
         "url": url,
     }
+
+
+def _cli_text(result: subprocess.CompletedProcess[str]) -> str:
+    """The CLI's own complaint, with a next step when it is the GUI failure."""
+
+    detail = (result.stdout or result.stderr or "").strip()
+    if not detail:
+        return "Could not read tailscale status."
+    if "GUI failed to start" in detail:
+        return (
+            detail
+            + "\n\nTailscale's command line could not reach the running app. "
+            "Open Tailscale from the menu bar, then turn remote access off and on."
+        )
+    return detail
 
 
 def _text(value: Any) -> str:

@@ -51,6 +51,68 @@ def test_publishing_reports_the_one_time_enable_link(monkeypatch):
     assert "Serve is not enabled" in result["reason"]
 
 
+def test_the_cli_always_sees_a_terminal(monkeypatch):
+    # A GUI app has no TERM, and the macOS Tailscale client turns that into
+    # "The Tailscale GUI failed to start" on stdout with exit status 0.
+    monkeypatch.delenv("TERM", raising=False)
+    assert tailscale._child_env()["TERM"] == "xterm-256color"
+
+    monkeypatch.setenv("TERM", "screen-256color")
+    assert tailscale._child_env()["TERM"] == "screen-256color"
+
+
+def test_the_running_app_is_asked_with_that_environment(monkeypatch, tmp_path):
+    binary = tmp_path / "Tailscale"
+    binary.write_text("#!/bin/sh\n", encoding="utf-8")
+    binary.chmod(0o755)
+    monkeypatch.setattr(tailscale, "cli", lambda: str(binary))
+    monkeypatch.delenv("TERM", raising=False)
+
+    seen = {}
+
+    def fake_run(argv, **kwargs):
+        seen["argv"] = argv
+        seen.update(kwargs)
+        return subprocess.CompletedProcess(argv, 0, stdout='{"BackendState": "Running"}', stderr="")
+
+    monkeypatch.setattr(tailscale.subprocess, "run", fake_run)
+
+    tailscale.status()
+
+    assert seen["argv"] == [str(binary), "status", "--json"]
+    assert seen["env"]["TERM"] == "xterm-256color"
+
+
+def test_a_gui_failure_on_stdout_is_reported_instead_of_a_shrug(monkeypatch):
+    def fake_run(args, timeout=12.0):
+        return subprocess.CompletedProcess(
+            args,
+            0,
+            stdout=(
+                "The Tailscale GUI failed to start: The operation couldn\u2019t be "
+                "completed. (Tailscale.CLIError error 3.)\n"
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(tailscale, "_run", fake_run)
+
+    info = tailscale.status()
+
+    assert info["available"] is True
+    assert info["running"] is False
+    assert "GUI failed to start" in info["reason"]
+    assert "turn remote access off and on" in info["reason"]
+
+
+def test_a_broken_status_read_still_starts_the_page_locally(monkeypatch):
+    monkeypatch.setattr(tailscale, "status", lambda: {"available": True, "running": False, "reason": "nope"})
+
+    published = tailscale.publish(8787)
+
+    assert published == {"ok": False, "reason": "nope", "url": ""}
+
+
 def test_the_installed_app_binary_wins_over_path(monkeypatch, tmp_path):
     pinned = tmp_path / "Tailscale.app" / "Tailscale"
     pinned.parent.mkdir()
