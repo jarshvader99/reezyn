@@ -9,3 +9,5 @@ __pycache__/
 build/
 dist/
 brag-output/
+# Release builds are uploaded to the site host, not committed.
+site/downloads/

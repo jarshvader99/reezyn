@@ -24,7 +24,8 @@ The script refuses to run on a dirty tree, then:
 3. builds and notarizes with `NOTARY_PROFILE` (default `reezyn`), failing if the
    build came out signed but not notarized;
 4. copies the DMG into `site/downloads/`, removes the previous one, and stamps the
-   new SHA-256 and size into the page;
+   new SHA-256 and size into the page. That folder is git-ignored and the deploy
+   uploads it, so the build never enters the repository;
 5. commits the release;
 6. deploys `site/` to `reezyn.elastikmind.com` through the Hostinger hosting MCP
    server, which authenticates through the Hostinger extension.

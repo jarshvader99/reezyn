@@ -80,7 +80,7 @@ fi
 SHA="$(uv run python packaging/release_version.py stamp "$VERSION" "$DMG")"
 echo "==> stamped site download: $(basename "$DMG") ($SHA)"
 
-git add pyproject.toml uv.lock reezyn/__init__.py site/index.html site/downloads
+git add pyproject.toml uv.lock reezyn/__init__.py site/index.html
 git commit -q -m "release: Reezyn $VERSION"
 echo "==> committed $(git rev-parse --short HEAD)"
 
