@@ -85,6 +85,68 @@ def test_describe_tool_maps_common_actions():
     )
 
 
+def test_a_resumed_thought_gets_a_return_cue():
+    now = time.time()
+    events = [Event(agent="t", kind="reasoning", text="I'll recheck the token.", ts=now)]
+    plain = compose_narration(events, NarrationConfig(connectors=False), now=now + 0.1)
+    resumed = compose_narration(
+        events, NarrationConfig(connectors=False), now=now + 0.1, lapsed=True
+    )
+    assert plain is not None and resumed is not None
+    assert plain.text == "I'll recheck the token."
+    assert resumed.text == "Back to this. I'll recheck the token."
+
+
+def test_the_narrator_opens_a_turn_with_a_cue():
+    spoken: list[str] = []
+    narrator = Narrator(
+        speak=lambda text: spoken.append(text) or True,
+        config=NarrationConfig(min_gap_s=0),
+        banter=BanterConfig(enabled=False),
+    )
+    narrator.start()
+    try:
+        narrator.opener()
+        deadline = time.time() + 2.0
+        while not spoken and time.time() < deadline:
+            time.sleep(0.02)
+    finally:
+        narrator.stop()
+    assert spoken
+    assert spoken[0] in DEFAULT_PACK.phrases["cue_open"]
+
+
+def test_a_long_gap_marks_the_next_burst_as_resumed():
+    narrator = Narrator(
+        speak=lambda text: True,
+        config=NarrationConfig(return_after_s=5),
+        banter=BanterConfig(enabled=False),
+    )
+    fresh = Narrator(
+        speak=lambda text: True,
+        config=NarrationConfig(return_after_s=5),
+        banter=BanterConfig(enabled=False),
+    )
+    fresh.submit(Event(agent="t", kind="reasoning", text="First."))
+    assert fresh._lapsed is False
+
+    narrator._last_finish = time.monotonic() - 30
+    narrator.submit(Event(agent="t", kind="reasoning", text="Again."))
+    assert narrator._lapsed is True
+
+
+def test_lull_lines_follow_the_work_that_went_quiet():
+    narrator = Narrator(
+        speak=lambda text: True,
+        config=NarrationConfig(),
+        banter=BanterConfig(enabled=True, after_s=0, max_lines=1),
+    )
+    narrator._scenario = "tests"
+    narrator._last_activity = time.monotonic() - 5
+    line = narrator._due_banter()
+    assert line in DEFAULT_PACK.scenario_banter["tests"]
+
+
 def test_compose_prefers_reasoning_and_respects_staleness():
     now = time.time()
     events = [

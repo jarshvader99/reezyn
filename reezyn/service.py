@@ -681,6 +681,10 @@ class ReezynService:
                 line = ""
             if line:
                 self.narrator.announce(line)
+            else:
+                # A new turn deserves an acknowledgement even when memory has
+                # nothing to offer; the debounce decides whether it is worth it.
+                self.narrator.opener()
         if event.kind == "permission":
             with self._lock:
                 self._pending_permission = {
@@ -735,6 +739,10 @@ class ReezynService:
         if not line:
             voice.open_for_conversation(permission=permission)
             return
+
+        if not permission:
+            # The answer is the end of the turn, so it closes with a cue.
+            line = f"{line} {pack.phrase('cue_close')}"
 
         with self._lock:
             self._voice_pending = "permission" if permission else "closing"

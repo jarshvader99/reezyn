@@ -87,6 +87,7 @@ def clean_for_speech(text: str, pack: LanguagePack = DEFAULT_PACK) -> str:
     value = INLINE_CODE.sub(lambda m: _code_to_words(m.group(1), pack), value)
     value = ABS_PATH.sub(lambda m: _basename(m.group(0), pack), value)
     value = REL_PATH.sub(lambda m: _basename(m.group(0), pack), value)
+    value = _normalize_technical(value, pack)
     value = re.sub(r"<[^>]{1,80}>", " ", value)
     value = value.replace("&", pack.and_word)
     value = value.replace("->", pack.arrow_word).replace("=>", pack.so_word)
@@ -112,6 +113,7 @@ def clean_for_speech(text: str, pack: LanguagePack = DEFAULT_PACK) -> str:
     value = re.sub(r"\n+", ". ", value)
     value = re.sub(r"([,;:])\s*([,;:])+", r"\1", value)
     value = re.sub(r"\.(?:\s*\.)+", ".", value)
+    value = re.sub(r"\.\s*,", ".", value)
     value = re.sub(r"\s+([,.;:!?])", r"\1", value)
     value = WHITESPACE.sub(" ", value).strip(" .;:-")
     value = _remove_reasoning_labels(value, pack)
@@ -126,6 +128,62 @@ def clean_for_speech(text: str, pack: LanguagePack = DEFAULT_PACK) -> str:
     value = re.sub(r"\bI'm going to\b", "I'll", value)
     value = re.sub(r"\bLet me\b", "Let me", value)
     return value.strip()
+
+
+def _normalize_technical(text: str, pack: LanguagePack) -> str:
+    """Spell the shorthand a coding agent writes so a voice can say it.
+
+    espeak reads "120ms" as "one hundred twenty em ess" and `e.g.` as
+    "ee jee", so units, comparisons, versions, and the common Latin
+    abbreviations are turned into words before synthesis.
+    """
+
+    value = text.replace("!=", f" {pack.phrase('op_ne')} ")
+    value = value.replace("<=", f" {pack.phrase('op_le')} ")
+    value = value.replace(">=", f" {pack.phrase('op_ge')} ")
+
+    for abbreviation, spoken in pack.abbreviations.items():
+        value = re.sub(
+            rf"(?<![\w]){re.escape(abbreviation)}",
+            spoken,
+            value,
+            flags=re.IGNORECASE,
+        )
+
+    value = re.sub(
+        r"\bv(\d+(?:\.\d+){1,3})\b",
+        lambda match: f"{pack.version_word} {match.group(1)}",
+        value,
+        flags=re.IGNORECASE,
+    )
+    # "Version v1.2" already names it; do not say the word twice.
+    value = re.sub(
+        rf"\b({re.escape(pack.version_word)})\s+{re.escape(pack.version_word)}\b",
+        r"\1",
+        value,
+        flags=re.IGNORECASE,
+    )
+    # The lookarounds keep dates like 2024-10-24 out of the range rule, while a
+    # sentence-final "10-20." still reads as a range.
+    value = re.sub(
+        r"(?<![\w.\-])(\d{1,3})\s*[-–]\s*(\d{1,3})(?![\d])(?!\.\d)",
+        lambda match: f"{match.group(1)} {pack.range_word} {match.group(2)}",
+        value,
+    )
+
+    def unit(match: re.Match[str]) -> str:
+        word = pack.units.get(match.group(2).lower())
+        return f"{match.group(1)} {word}" if word else match.group(0)
+
+    value = re.sub(
+        r"(?<![\w.])(\d+(?:\.\d+)?)\s*"
+        r"(ms|secs?|s|mins?|h|hrs?|kb|mb|gb|tb|px|fps|x|k)\b",
+        unit,
+        value,
+        flags=re.IGNORECASE,
+    )
+    # 1,000 and 10,000,000 read as numbers once the separators are gone.
+    return re.sub(r"(?<=\d),(?=\d{3}\b)", "", value)
 
 
 def select_excerpt(
@@ -171,14 +229,79 @@ def select_excerpt(
     return excerpt
 
 
+SHELL_TOOLS = {
+    "bash",
+    "shell",
+    "exec_command",
+    "run_shell_command",
+    "run_terminal_command",
+    "run_terminal_cmd",
+    "local_shell_call",
+}
+READ_TOOLS = {
+    "read",
+    "read_file",
+    "read_files",
+    "read_many_files",
+    "view",
+    "open_file",
+    "grep",
+    "grep_search",
+    "ripgrep",
+    "codebase_search",
+    "code_search",
+    "glob",
+    "glob_files",
+    "list_files",
+    "list_dir",
+    "list_directory",
+    "file_search",
+}
+# Which lull lines fit the work that just went quiet.
+SCENARIO_BY_INTENT = {
+    "running_tests": "tests",
+    "running_project": "command",
+    "running_command": "command",
+    "installing_dependencies": "command",
+    "organizing_files": "command",
+    "reading_code": "reading",
+    "searching_codebase": "reading",
+    "looking_around": "reading",
+    "checking_changes": "reading",
+}
+
+
+def scenario_for_tool(event: Event) -> str:
+    """The banter scenario a tool call belongs to, or an empty string."""
+
+    name = (event.tool_name or "").strip().lower()
+    if name in SHELL_TOOLS:
+        command = str(
+            event.tool_input.get("command") or event.tool_input.get("cmd") or ""
+        )
+        return SCENARIO_BY_INTENT.get(command_intent_key(command), "")
+    if name in READ_TOOLS:
+        return "reading"
+    return ""
+
+
 def describe_tool(
     name: str,
     tool_input: dict[str, Any] | None = None,
     pack: LanguagePack = DEFAULT_PACK,
+    variant: int = 0,
 ) -> str:
-    """A short, non-technical description of an agent action."""
+    """A short, non-technical description of an agent action.
+
+    ``variant`` picks between the pack's alternate wordings, so the same tool
+    does not always produce the identical sentence. Zero is the plain one.
+    """
 
     tool_input = tool_input or {}
+
+    def say(key: str, **values: str) -> str:
+        return pack.phrase(key, variant=variant, **values)
+
     raw = (name or pack.phrase("tool_noun")).strip()
     key = raw.lower()
     file_name = _tool_file(tool_input, pack=pack)
@@ -193,9 +316,9 @@ def describe_tool(
         "local_shell_call",
     }:
         command = str(tool_input.get("command") or tool_input.get("cmd") or "")
-        return command_intent(command, pack)
+        return command_intent(command, pack, variant)
     if key in {"read", "read_file", "read_files", "read_many_files", "view", "open_file"}:
-        return pack.phrase("reading_file", file=file_name) if file_name else pack.phrase("reading_code")
+        return say("reading_file", file=file_name) if file_name else say("reading_code")
     if key in {
         "edit",
         "edit_file",
@@ -206,79 +329,89 @@ def describe_tool(
         "apply_patch",
         "patch",
     }:
-        return pack.phrase("updating_file", file=file_name) if file_name else pack.phrase("editing_files")
+        return say("updating_file", file=file_name) if file_name else say("editing_files")
     if key in {"write", "write_file"}:
-        return pack.phrase("writing_file", file=file_name) if file_name else pack.phrase("writing_a_file")
+        return say("writing_file", file=file_name) if file_name else say("writing_a_file")
     if key == "delete_file":
-        return pack.phrase("deleting_file", file=file_name) if file_name else pack.phrase("deleting_a_file")
+        return say("deleting_file", file=file_name) if file_name else say("deleting_a_file")
     if key in {"notebookedit", "edit_notebook"}:
-        return pack.phrase("notebook")
+        return say("notebook")
     if key in {"grep", "grep_search", "ripgrep", "codebase_search", "code_search"}:
         pattern = str(tool_input.get("pattern") or "").strip()
         if pattern and len(pattern) <= 40 and re.search(r"[A-Za-z0-9]", pattern):
-            return pack.phrase("searching_for", pattern=_clean_quoted(pattern))
-        return pack.phrase("searching_codebase")
+            return say("searching_for", pattern=_clean_quoted(pattern))
+        return say("searching_codebase")
     if key in {"glob", "glob_files", "list_files", "list_dir", "list_directory", "file_search"}:
-        return pack.phrase("finding_files")
+        return say("finding_files")
     if key in {"websearch", "google_web_search", "web_search", "semantic_search"}:
-        return pack.phrase("checking_docs")
+        return say("checking_docs")
     if key in {"webfetch", "web_fetch", "fetch", "read_url"}:
-        return pack.phrase("reading_docs")
+        return say("reading_docs")
     if key in {"task", "agent", "subagent"}:
-        return pack.phrase("subagent")
+        return say("subagent")
     if key in {"todowrite", "write_todos", "update_plan", "todo_write"}:
-        return pack.phrase("plan")
+        return say("plan")
     if key in {"view_image", "read_image"}:
-        return pack.phrase("screenshot")
+        return say("screenshot")
     if key in {"skill", "load_skill"}:
-        return pack.phrase("skill")
+        return say("skill")
     if key in {"question", "ask_user"}:
-        return pack.phrase("question")
+        return say("question")
     if key in {"suggest_followups", "followup"}:
-        return pack.phrase("followups")
+        return say("followups")
     if key in {"lsp", "read_lints"}:
-        return pack.phrase("lsp")
+        return say("lsp")
     if key in {"fetch_rules", "read_rules"}:
-        return pack.phrase("rules")
+        return say("rules")
     if key == "update_memory":
-        return pack.phrase("memory")
+        return say("memory")
     if key.startswith("mcp__"):
         parts = raw.split("__")
         server = parts[1] if len(parts) > 1 else pack.phrase("mcp_server")
-        return pack.phrase("using_mcp", server=server.replace("_", " "))
+        return say("using_mcp", server=server.replace("_", " "))
     human = re.sub(r"[_\-]+", " ", raw).strip()
-    return pack.phrase("using_tool", tool=human) if human else pack.phrase("working")
+    return say("using_tool", tool=human) if human else say("working")
 
 
-def command_intent(command: str, pack: LanguagePack = DEFAULT_PACK) -> str:
+def command_intent_key(command: str) -> str:
+    """The phrase key a shell command falls under."""
+
     command = command.strip()
     if not command:
-        return pack.phrase("running_command")
+        return "running_command"
     if TEST_COMMAND.search(command):
-        return pack.phrase("running_tests")
+        return "running_tests"
     if LINT_COMMAND.search(command):
-        return pack.phrase("checking_code")
+        return "checking_code"
     if SEARCH_COMMAND.search(command):
-        return pack.phrase("searching_codebase")
+        return "searching_codebase"
     if re.search(r"\bgit (?:status|diff|show)\b", command):
-        return pack.phrase("checking_changes")
+        return "checking_changes"
     if re.search(r"\bgit log\b", command):
-        return pack.phrase("recent_history")
+        return "recent_history"
     if INSTALL_COMMAND.search(command):
-        return pack.phrase("installing_dependencies")
+        return "installing_dependencies"
     if READ_COMMAND.search(command):
-        return pack.phrase("reading_code")
+        return "reading_code"
     if LIST_COMMAND.search(command):
-        return pack.phrase("looking_around")
+        return "looking_around"
     if MUTATE_COMMAND.search(command):
-        return pack.phrase("organizing_files")
+        return "organizing_files"
     if NETWORK_COMMAND.search(command):
-        return pack.phrase("checking_endpoint")
+        return "checking_endpoint"
     if GIT_COMMAND.search(command):
-        return pack.phrase("working_with_git")
+        return "working_with_git"
     if RUN_COMMAND.search(command):
-        return pack.phrase("running_project")
-    return pack.phrase("running_command")
+        return "running_project"
+    return "running_command"
+
+
+def command_intent(
+    command: str,
+    pack: LanguagePack = DEFAULT_PACK,
+    variant: int = 0,
+) -> str:
+    return pack.phrase(command_intent_key(command), variant=variant)
 
 
 def compose_narration(
@@ -286,8 +419,17 @@ def compose_narration(
     config: NarrationConfig,
     now: float | None = None,
     pack: LanguagePack = DEFAULT_PACK,
+    variant_index: int = 0,
+    connector_index: int = 0,
+    lapsed: bool = False,
 ) -> Narration | None:
-    """Coalesce a burst of events into one calm spoken thought."""
+    """Coalesce a burst of events into one calm spoken thought.
+
+    ``variant_index`` rotates the pack's alternate wordings per line,
+    ``connector_index`` picks the opening filler so two lines in a row never
+    start with the same word, and ``lapsed`` adds the "back to this" cue after
+    a long silence.
+    """
 
     now = time.time() if now is None else now
     ordered = sorted(events, key=lambda item: item.ts)
@@ -330,7 +472,12 @@ def compose_narration(
                 and now - latest_tool.ts <= 2.5
                 and _word_count(excerpt, pack) < 9
             ):
-                action = describe_tool(latest_tool.tool_name, latest_tool.tool_input, pack)
+                action = describe_tool(
+                    latest_tool.tool_name,
+                    latest_tool.tool_input,
+                    pack,
+                    variant_index,
+                )
                 if action and action not in excerpt.lower():
                     terminal = "" if excerpt.endswith((".", "!", "?")) else "."
                     excerpt = f"{excerpt}{terminal}{pack.phrase('action_suffix', action=action)}"
@@ -339,14 +486,25 @@ def compose_narration(
             source_events = [reasoning]
             if latest_tool and latest_tool.ts >= reasoning.ts:
                 source_events.append(latest_tool)
-            return _finish(text, fingerprint, source_events, config, pack)
+            return _finish(
+                text,
+                fingerprint,
+                source_events,
+                config,
+                pack,
+                connector_index,
+                variant_index,
+                lapsed,
+            )
 
     if not tool_events:
         return None
 
     actions: list[str] = []
     for event in tool_events:
-        action = describe_tool(event.tool_name, event.tool_input, pack)
+        action = describe_tool(
+            event.tool_name, event.tool_input, pack, variant_index
+        )
         if action and action not in actions:
             actions.append(action)
     actions = actions[-2:]
@@ -358,7 +516,16 @@ def compose_narration(
     else:
         text = pack.phrase("action_pair", first=actions[0], second=actions[1])
     fingerprint = latest_tool.fingerprint if latest_tool else "tools"
-    return _finish(text, fingerprint, tool_events[-2:], config, pack)
+    return _finish(
+        text,
+        fingerprint,
+        tool_events[-2:],
+        config,
+        pack,
+        connector_index,
+        variant_index,
+        lapsed,
+    )
 
 
 def _finish(
@@ -367,14 +534,24 @@ def _finish(
     events: list[Event],
     config: NarrationConfig,
     pack: LanguagePack,
+    connector_index: int = 0,
+    variant_index: int = 0,
+    lapsed: bool = False,
 ) -> Narration:
     text = _ensure_terminal_punctuation(text)
+    if lapsed:
+        # A thought that resumes after a long tool call gets its own doorway;
+        # adding a filler as well would stack two openers.
+        cue = pack.phrase("cue_return", variant=variant_index)
+        return Narration(text=f"{cue} {text}", fingerprint=fingerprint, events=events)
     if config.connectors:
-        text = _add_connector(text, fingerprint, pack)
+        text = _add_connector(text, fingerprint, pack, connector_index)
     return Narration(text=text, fingerprint=fingerprint, events=events)
 
 
-def _add_connector(text: str, fingerprint: str, pack: LanguagePack) -> str:
+def _add_connector(
+    text: str, fingerprint: str, pack: LanguagePack, index: int = 0
+) -> str:
     if not text:
         return text
     if text.lower().startswith(pack.connector_starts):
@@ -382,7 +559,9 @@ def _add_connector(text: str, fingerprint: str, pack: LanguagePack) -> str:
     score = int(hashlib.sha1(fingerprint.encode()).hexdigest()[:8], 16)
     if score % 4 != 0:
         return text
-    connector = pack.connectors[score % len(pack.connectors)]
+    # The index walks with the conversation, so two lines in a row cannot open
+    # with the same filler.
+    connector = pack.connectors[index % len(pack.connectors)]
     return f"{connector} {text}"
 
 
@@ -554,6 +733,11 @@ class Narrator:
         self._banter_count = 0
         self._banter_index = 0
         self._announce = ""
+        self._connector_index = 0
+        self._variant_index = 0
+        self._cue_index = 0
+        self._lapsed = False
+        self._scenario = ""
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -592,10 +776,27 @@ class Narrator:
             self._seen[event.fingerprint] = now
             self._pending.append(event)
             self._last_submit = now
+            # A burst that follows a long quiet stretch gets a "back to this"
+            # cue, but only when nothing was still being said.
+            self._lapsed = (
+                not self._speaking
+                and self._last_finish > 0
+                and (now - self._last_finish) > self._config.return_after_s
+            )
+            if event.kind == "tool":
+                self._scenario = scenario_for_tool(event)
             self._last_activity = now
             self._banter_count = 0
         self._wake.set()
         self._notify()
+
+    def opener(self) -> None:
+        """A short acknowledgement when a prompt lands and memory has nothing."""
+
+        with self._lock:
+            line = self._pack.phrase("cue_open", variant=self._cue_index)
+            self._cue_index += 1
+        self.announce(line)
 
     def announce(self, text: str) -> None:
         """Speak a composed line (a recall or a recap) ahead of queued thoughts.
@@ -702,7 +903,7 @@ class Narrator:
             wait = config.after_s if self._banter_count == 0 else config.repeat_s
             if idle < wait:
                 return ""
-            lines = self._pack.banter
+            lines = self._pack.banter_lines(self._scenario)
             if not lines:
                 return ""
             line = lines[self._banter_index % len(lines)]
@@ -741,7 +942,14 @@ class Narrator:
                 with self._lock:
                     self._speaking = True
             else:
-                narration = compose_narration(events, self._config, pack=self._pack)
+                narration = compose_narration(
+                    events,
+                    self._config,
+                    pack=self._pack,
+                    variant_index=self._variant_index,
+                    connector_index=self._connector_index,
+                    lapsed=self._lapsed,
+                )
                 if not narration:
                     with self._lock:
                         self._speaking = False
@@ -780,6 +988,9 @@ class Narrator:
                 self._current = ""
                 self._last_finish = time.monotonic()
                 self._cancel_current = False
+                self._lapsed = False
+                self._connector_index += 1
+                self._variant_index += 1
                 if ok:
                     if banter:
                         self._last_banter = time.monotonic()

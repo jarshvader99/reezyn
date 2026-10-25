@@ -466,6 +466,36 @@ def test_closing_event_speaks_the_answer_then_opens_the_microphone(tmp_path):
         service.stop()
 
 
+def test_the_closing_answer_ends_with_a_cue(tmp_path):
+    service, _voice, speaker = _voice_service(tmp_path)
+    try:
+        service._submit_event(
+            Event(agent="claude", kind="closing", text="The tests pass.")
+        )
+        assert _wait_for(lambda: bool(speaker.spoken))
+        assert speaker.spoken[-1] == "The tests pass. That's done."
+    finally:
+        service.stop()
+
+
+def test_a_new_prompt_gets_an_opener(tmp_path):
+    service, _voice, speaker = _voice_service(tmp_path, conversation=False)
+    try:
+        service._submit_event(
+            Event(
+                agent="claude",
+                kind="prompt",
+                text="why does login still work after refresh rotation",
+                session_id="s1",
+                project=str(tmp_path),
+            )
+        )
+        assert _wait_for(lambda: bool(speaker.spoken))
+        assert speaker.spoken[-1] in DEFAULT_PACK.phrases["cue_open"]
+    finally:
+        service.stop()
+
+
 def test_permission_event_opens_the_microphone_for_an_answer(tmp_path):
     service, voice, speaker = _voice_service(tmp_path)
     try:

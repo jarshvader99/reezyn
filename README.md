@@ -355,8 +355,10 @@ of talking to an idle laptop.
 
 These lines are Reezyn's own presence, not invented agent thoughts: they never
 claim to know what the agent is doing, only that it is still working. Every
-language pack carries its own set, so banter follows the selected voice.
-Toggle **Lull banter** in the menu, or set `[banter] enabled = false`.
+language pack carries three sets — tests, a long command, and reading — and
+picks from the one that matches the work that went quiet, falling back to the
+generic set. Toggle **Lull banter** in the menu, or set
+`[banter] enabled = false`.
 
 ## Memory
 
@@ -562,6 +564,7 @@ max_sentences = 2       # 0 = no sentence limit; raise max_words to fit longer t
 debounce_ms = 700
 stale_after_s = 9.0
 min_gap_s = 0.35
+return_after_s = 12.0   # silence before a resumed thought gets "Back to this"
 connectors = true       # occasional "Okay," / "Right," / "So,"
 dedupe_s = 30.0
 
@@ -617,6 +620,11 @@ Reasoning is cleaned before it reaches Kokoro:
 - fenced and inline code are removed or reduced to a filename
 - markdown, URLs, and full paths are stripped
 - snake_case and camelCase become words
+- technical shorthand is spelled out: `120ms` is "120 milliseconds", `10-20`
+  is "10 to 20", `v0.2.3` is "version 0.2.3", `e.g.` is "for example", and
+  `a != b` is "a not equal to b"
+- each action has several wordings in every pack, rotated line by line, so the
+  same tool does not always produce the identical sentence
 - at most `max_sentences` short sentences are selected (two by default), capped
   by `max_words`
 - set `max_sentences = 0` and raise `max_words` (up to 400) to hear a whole
@@ -639,6 +647,18 @@ OpenCode's completed file list — the file is named instead:
 
 Multiple active sessions are kept separate: the most recently active session
 wins until it goes quiet.
+
+Conversational cues sit around the agent's own words:
+
+- a short opener ("Let's see.", "Okay, let's look.") when you send a prompt
+  and there is no earlier conclusion worth quoting
+- "Back to this." when a thought resumes after a long tool call; the gap is
+  `return_after_s`, 12 seconds by default
+- a closing line after the agent's final answer ("That's done."), so a turn
+  audibly ends instead of trailing off
+- lull lines chosen by what went quiet: a test run, a long command, or reading
+- opening fillers rotate, so two lines in a row never start with the same
+  "Okay, / Right, / So,"
 
 Long lines are synthesized a piece at a time — a sentence, or a clause when one
 sentence runs long — so the first words are ready after the first piece instead

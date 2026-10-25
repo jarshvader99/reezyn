@@ -75,6 +75,8 @@ class NarrationConfig:
     debounce_ms: int = 700
     stale_after_s: float = 9.0
     min_gap_s: float = 0.35
+    # Silence before a resumed thought gets a "back to this" cue.
+    return_after_s: float = 12.0
     connectors: bool = True
     dedupe_s: float = 30.0
 
@@ -201,6 +203,7 @@ class Config:
             f"debounce_ms = {n.debounce_ms}\n"
             f"stale_after_s = {n.stale_after_s:.1f}\n"
             f"min_gap_s = {n.min_gap_s:.2f}\n"
+            f"return_after_s = {n.return_after_s:.1f}\n"
             f"connectors = {str(n.connectors).lower()}\n"
             f"dedupe_s = {n.dedupe_s:.1f}\n\n"
             "[banter]\n"
@@ -305,6 +308,9 @@ def load_config(home: Path | None = None) -> Config:
             debounce_ms=int(_clamp_float(narration.get("debounce_ms"), 150, 3000, 700)),
             stale_after_s=_clamp_float(narration.get("stale_after_s"), 2, 60, 9),
             min_gap_s=_clamp_float(narration.get("min_gap_s"), 0, 4, 0.35),
+            return_after_s=_clamp_float(
+                narration.get("return_after_s"), 3, 120, 12.0
+            ),
             connectors=_bool(narration.get("connectors"), True),
             dedupe_s=_clamp_float(narration.get("dedupe_s"), 1, 300, 30),
         ),

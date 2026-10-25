@@ -206,6 +206,95 @@ def test_compose_joins_spanish_reasoning_and_action():
     assert narration.text == "Voy a comprobar. Estoy leyendo session.ts."
 
 
+def test_technical_text_is_spoken_as_words():
+    cleaned = clean_for_speech(
+        "I'll wait 120ms, retry after 2.5 s, then check 42MB on lines 10-20. "
+        "See e.g. the docs, i.e. the readme, etc. It is v0.2.3, and a != b."
+    )
+    assert "120 milliseconds" in cleaned
+    assert "2.5 seconds" in cleaned
+    assert "42 megabytes" in cleaned
+    assert "10 to 20" in cleaned
+    assert "for example" in cleaned
+    assert "that is" in cleaned
+    assert "and so on." in cleaned
+    assert "version 0.2.3" in cleaned
+    assert "not equal to" in cleaned
+
+
+def test_a_version_is_not_named_twice():
+    assert "Version 1.2" in clean_for_speech("Version v1.2 shipped.")
+    assert "v1.2" not in clean_for_speech("Version v1.2 shipped.")
+
+
+def test_dates_and_decimals_are_not_mistaken_for_ranges():
+    cleaned = clean_for_speech("It shipped on 2024-10-24 after 3.5 hours.")
+    assert "2024-10-24" in cleaned
+    assert "3.5 hours" in cleaned
+
+
+def test_each_pack_speaks_units_and_ranges_its_own_way():
+    spanish = clean_for_speech(
+        "Tarda 120ms y ocupa 42MB, ver p. ej. v1.2 en las líneas 10-20.", pack=SPANISH
+    )
+    assert "120 milisegundos" in spanish
+    assert "42 megabytes" in spanish
+    assert "por ejemplo" in spanish
+    assert "versión 1.2" in spanish
+    assert "10 a 20" in spanish
+
+    french = clean_for_speech(
+        "Ça prend 120ms et 42MB, voir p. ex. v1.2 aux lignes 10-20.", pack=FRENCH
+    )
+    assert "120 millisecondes" in french
+    assert "42 mégaoctets" in french
+    assert "par exemple" in french
+    assert "version 1.2" in french
+    assert "10 à 20" in french
+
+
+def test_tool_phrases_have_alternate_wordings():
+    assert describe_tool("Read", {"path": "session.ts"}) == "reading session.ts"
+    assert describe_tool("Read", {"path": "session.ts"}, variant=1) == (
+        "opening session.ts"
+    )
+    assert describe_tool("Read", {"path": "session.ts"}, variant=3) == (
+        "reading session.ts"
+    )
+    assert describe_tool("Bash", {"command": "pytest"}, variant=1) == (
+        "running the test suite"
+    )
+
+
+def test_every_pack_has_conversation_cues_and_scenario_banter():
+    for pack in PACKS.values():
+        for key in ("cue_open", "cue_return", "cue_close"):
+            lines = pack.phrases[key]
+            assert isinstance(lines, tuple)
+            assert len(lines) >= 2
+            assert all(line.strip() for line in lines)
+        assert set(pack.scenario_banter) == {"tests", "command", "reading"}
+        for lines in pack.scenario_banter.values():
+            assert lines
+            assert all(4 <= len(line.split()) <= 20 for line in lines)
+
+
+def test_connectors_rotate_instead_of_repeating():
+    import hashlib
+
+    from reezyn.narration import _add_connector
+
+    fingerprint = next(
+        value
+        for value in (f"fp{index}" for index in range(200))
+        if int(hashlib.sha1(value.encode()).hexdigest()[:8], 16) % 4 == 0
+    )
+    first = _add_connector("The token check.", fingerprint, DEFAULT_PACK, 0)
+    second = _add_connector("The token check.", fingerprint, DEFAULT_PACK, 1)
+    assert first.startswith("Okay,")
+    assert second.startswith("Right,")
+
+
 def test_speaker_uses_the_language_of_the_selected_voice(tmp_path):
     for voice, lang in (
         ("em_alex", "es"),
