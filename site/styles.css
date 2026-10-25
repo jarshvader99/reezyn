@@ -1208,3 +1208,29 @@ summary {
     margin-bottom: var(--space-2xl);
   }
 }
+
+/* The full demo: one session, chapter by chapter */
+
+.demo {
+  border-top: var(--rule-hair) solid var(--color-rule);
+}
+
+.demo-head {
+  max-width: var(--measure-section);
+}
+
+.demo-head .section-lede {
+  margin-top: var(--space-md);
+}
+
+.demo-film {
+  margin: var(--space-xl) 0 0;
+}
+
+.demo-film .film-frame {
+  background: var(--color-paper-2);
+}
+
+.demo-film .film-caption {
+  align-items: baseline;
+}

@@ -10,6 +10,8 @@ anywhere. Reezyn reads the agent's local session log, picks a short reasoning
 excerpt, turns it into a speakable first-person line, and queues it at a human
 pace.
 
+**[Watch the two-minute demo](https://reezyn.elastikmind.com/#demo)** · [Download for macOS](https://reezyn.elastikmind.com/downloads/Reezyn-0.2.4.dmg) · [How it works](#what-gets-spoken)
+
 ```
 agent event → adapter → burst coalescer → speech cleanup → Kokoro → audio
 ```

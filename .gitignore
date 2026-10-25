@@ -12,3 +12,11 @@ brag-output/
 # Release builds are uploaded to the site host, not committed.
 site/downloads/
 site/updates/*.zip
+
+# the demo film's build output (the source and build scripts are tracked)
+video/*/renders/
+video/*/.hyperframes/
+video/*/node_modules/
+video/*/assets/audio/*.wav
+video/*/.hyperframes-cache/
+video/reezyn-feature-demo.mp4

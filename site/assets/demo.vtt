@@ -1,0 +1,137 @@
+WEBVTT
+
+1
+00:00:00.700 --> 00:00:05.233
+A coding agent thinks in full sentences, and shows you almost none of them.
+
+2
+00:00:05.573 --> 00:00:08.539
+Reezyn reads that thinking, and says it out loud.
+
+3
+00:00:09.489 --> 00:00:13.836
+Agents fire tool calls in bursts. Reezyn waits for the pause,
+
+4
+00:00:13.836 --> 00:00:17.081
+keeps the one thought worth hearing, and drops the backlog.
+
+5
+00:00:18.031 --> 00:00:22.550
+Every event takes the same path. An adapter reads the session log,
+
+6
+00:00:22.550 --> 00:00:26.024
+the coalescer picks the burst, the cleaner strips the code, and
+
+7
+00:00:26.024 --> 00:00:27.962
+Kokoro speaks it locally.
+
+8
+00:00:28.912 --> 00:00:31.890
+Claude Code, Codex, Gemini, Cursor, OpenCode and
+
+9
+00:00:31.890 --> 00:00:37.339
+Freebuff are watched directly. Anything else can emit an event of its own.
+
+10
+00:00:38.289 --> 00:00:41.965
+Code is stripped, paths go, and snake case becomes words.
+
+11
+00:00:42.305 --> 00:00:46.577
+A technical shorthand is spelled out, two sentences at most are kept, and
+
+12
+00:00:46.577 --> 00:00:50.447
+if there is no reasoning at all, it names the file instead.
+
+13
+00:00:51.397 --> 00:00:54.827
+Nine voices, three paces, and language packs for English,
+
+14
+00:00:54.827 --> 00:00:59.713
+Spanish and French. A pack frames the agent's words in its own
+
+15
+00:00:59.713 --> 00:01:02.901
+language, but it pronounces them, it does not translate them.
+
+16
+00:01:03.851 --> 00:01:07.172
+The seedling in the menu bar is the interface:
+
+17
+00:01:07.172 --> 00:01:10.692
+pause, skip, the last six lines, and a recap of the session.
+
+18
+00:01:11.032 --> 00:01:14.251
+The CC viewer floats the current line over your
+
+19
+00:01:14.251 --> 00:01:17.241
+editor, and ignores the pointer until you hold Option.
+
+20
+00:01:18.191 --> 00:01:21.223
+Each project keeps a small ledger of what you
+
+21
+00:01:21.223 --> 00:01:25.156
+asked and what the agent concluded. Ask something you already settled, and
+
+22
+00:01:25.156 --> 00:01:29.087
+Reezyn quotes the earlier answer first, once per prompt,
+
+23
+00:01:29.087 --> 00:01:31.508
+and at most once every ninety seconds.
+
+24
+00:01:32.458 --> 00:01:36.964
+Say Reezyn, and dictate. It types the draft and never submits it.
+
+25
+00:01:37.304 --> 00:01:40.235
+Ready to send it, unless you end with send it now.
+
+26
+00:01:40.575 --> 00:01:44.701
+When a turn ends, it speaks the answer and reopens the microphone.
+
+27
+00:01:45.651 --> 00:01:51.296
+Remote access publishes the same session to your phone, over Tailscale, and nowhere else.
+
+28
+00:01:51.636 --> 00:01:55.360
+Live lines, allow and deny, replies by text or
+
+29
+00:01:55.360 --> 00:01:57.111
+voice, read aloud, and a recap.
+
+30
+00:01:58.061 --> 00:02:01.440
+No cloud calls, no telemetry, no summary model.
+
+31
+00:02:01.780 --> 00:02:03.900
+Updates are checked against a checksum and
+
+32
+00:02:03.900 --> 00:02:07.797
+the same Developer ID before a single byte is swapped in.
+
+33
+00:02:08.747 --> 00:02:12.406
+Reezyn is free and open source, and installs in a minute.
+
+34
+00:02:12.746 --> 00:02:14.103
+Then it just talks.
