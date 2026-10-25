@@ -147,6 +147,36 @@ def test_banter_defaults_clamp_and_round_trip(tmp_path):
     assert again.banter.after_s == 8
 
 
+def test_captions_config_round_trips_and_clamps(tmp_path):
+    config = load_config(tmp_path)
+    assert config.captions.enabled is False
+    assert config.captions.opacity == 0.9
+    assert config.captions.font_size == 19.0
+    assert config.captions.click_through is False
+
+    (tmp_path / "config.toml").write_text(
+        "[captions]\n"
+        "enabled = true\n"
+        "opacity = 5\n"
+        "font_size = 2\n"
+        "collapsed = true\n"
+        "click_through = true\n"
+    )
+    loaded = load_config(tmp_path)
+    assert loaded.captions.enabled is True
+    assert loaded.captions.opacity == 1.0
+    assert loaded.captions.font_size == 12.0
+    assert loaded.captions.collapsed is True
+    assert loaded.captions.click_through is True
+
+    loaded.captions.opacity = 0.6
+    loaded.captions.font_size = 24.0
+    loaded.save(tmp_path)
+    again = load_config(tmp_path)
+    assert again.captions.opacity == 0.6
+    assert again.captions.font_size == 24.0
+
+
 def test_invalid_toml_falls_back_to_defaults(tmp_path):
     (tmp_path / "config.toml").write_text("this is not toml [[[")
     assert isinstance(load_config(tmp_path), Config)

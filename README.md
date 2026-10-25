@@ -221,6 +221,9 @@ Claude Code and Freebuff get.
 - **Recent thoughts** — the last six spoken lines.
 - **Recap the last session** — speaks what you asked, what the agent concluded,
   and what it last touched, without making you re-read the transcript.
+- **CC viewer** — a floating caption panel for the current line, with opacity,
+  type size, collapse, click-through, and a ⌥⌘H show/hide. Off by default; see
+  [CC viewer](#cc-viewer).
 - **Recall when I re-ask** — on by default. When a new prompt overlaps work this
   project already settled, Reezyn quotes the earlier conclusion first.
 - **Voice** — English (Heart, Michael, Bella, George, Emma), Spanish (Dora,
@@ -260,6 +263,34 @@ when macOS Reduce Motion is enabled. The icon carries the identity, so the word
 setup or speech errors (`!`), and downloads (`↓`).
 
 `reezyn doctor` is the text version of the same state.
+
+## CC viewer
+
+A floating caption panel for the line being spoken: a third of the screen wide,
+centred just below the menu bar, over a translucent glass that follows the
+desktop and the current appearance. Turn it on with **CC viewer → Show
+captions**. It is a non-activating panel, so it never takes focus from the
+editor or terminal you are typing in.
+
+The live line is bright and the two before it sit dimmed above it; between
+thoughts the last line stays visible, so the panel never flashes empty. A small
+control strip runs along the bottom:
+
+- **⏸ / ▶** pauses or resumes narration, **⏭** skips this thought
+- **⧉** copies the current line to the clipboard
+- **A− / A+** cycles the three type sizes; the slider sets opacity live
+- **▾** collapses the panel to a one-line pill, **✕** switches the viewer off
+
+**⌥⌘H** shows and hides it from any app. That is a global key monitor, so it
+needs the Accessibility permission voice input already asks for; until it is
+granted the menu says so, and the menu item, panel button, and ✕ still work.
+
+**Click through unless ⌥** makes the panel ignore the pointer, so a click lands
+on whatever is underneath; holding Option makes it interactive again for the
+controls. It is off by default.
+
+The panel is drawn from the same `current` and `recent` lines the menu already
+holds. It does not read the transcript, and nothing about it leaves the Mac.
 
 ## Languages
 
@@ -551,6 +582,13 @@ freebuff = true
 [ambience]
 enabled = false
 volume = 0.35           # 0..1; Whisper .15, Soft .35, Clear .55
+
+[captions]
+enabled = false
+opacity = 0.90          # 0.3..1, the panel's own transparency
+font_size = 19.0        # Small 15, Medium 19, Large 24
+collapsed = false       # a one-line pill instead of the full panel
+click_through = false   # ignore the pointer until ⌥ is held
 
 [recall]
 enabled = true

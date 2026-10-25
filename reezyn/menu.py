@@ -13,7 +13,17 @@ from typing import Any
 import rumps
 
 from . import __version__
-from .config import AMBIENCE_LEVELS, CONFIG_ENV, SPEEDS, Config, app_home, load_config
+from .captions import CaptionOverlay
+from .config import (
+    AMBIENCE_LEVELS,
+    CAPTION_FONTS,
+    CAPTION_OPACITIES,
+    CONFIG_ENV,
+    SPEEDS,
+    Config,
+    app_home,
+    load_config,
+)
 from .languages import LANGUAGES
 from .service import ReezynService
 from .status_icon import icon_alpha, reduce_motion, seedling_image
@@ -51,6 +61,8 @@ class ReezynMenuApp(rumps.App):
         self._download_thread: threading.Thread | None = None
         self._remote_checked = 0.0
         self._remote_info: dict[str, Any] = {}
+        self.caption_overlay: CaptionOverlay | None = None
+        self._caption_error = ""
 
         self._icon_ready = False
         self._icon_failed = False
@@ -69,6 +81,42 @@ class ReezynMenuApp(rumps.App):
         self.skip_item = rumps.MenuItem("Skip this thought", callback=self._skip)
         self.recent_menu = rumps.MenuItem("Recent thoughts")
         self.recap_item = rumps.MenuItem("Recap the last session", callback=self._recap)
+
+        self.captions_menu = rumps.MenuItem("CC viewer")
+        self.captions_toggle = rumps.MenuItem(
+            "Show captions", callback=self._toggle_captions
+        )
+        self.captions_menu.add(self.captions_toggle)
+        opacity_menu = rumps.MenuItem("Opacity")
+        self.captions_opacity_items: dict[float, rumps.MenuItem] = {}
+        for opacity in CAPTION_OPACITIES:
+            item = rumps.MenuItem(
+                f"{opacity * 100:.0f}%", callback=self._make_captions_opacity(opacity)
+            )
+            self.captions_opacity_items[opacity] = item
+            opacity_menu.add(item)
+        self.captions_menu.add(opacity_menu)
+        size_menu = rumps.MenuItem("Text size")
+        self.captions_size_items: dict[str, rumps.MenuItem] = {}
+        for label, size in CAPTION_FONTS.items():
+            item = rumps.MenuItem(
+                label, callback=self._make_captions_font(size)
+            )
+            self.captions_size_items[label] = item
+            size_menu.add(item)
+        self.captions_menu.add(size_menu)
+        self.captions_collapse = rumps.MenuItem(
+            "Collapse to a pill", callback=self._toggle_captions_collapsed
+        )
+        self.captions_click = rumps.MenuItem(
+            "Click through unless ⌥", callback=self._toggle_captions_click
+        )
+        self.captions_hint = rumps.MenuItem("⌥⌘H shows and hides")
+        self.captions_hint.set_callback(None)
+        self.captions_menu.add(rumps.separator)
+        self.captions_menu.add(self.captions_collapse)
+        self.captions_menu.add(self.captions_click)
+        self.captions_menu.add(self.captions_hint)
         self.recent_items: list[rumps.MenuItem] = []
         for _ in range(6):
             item = rumps.MenuItem("")
@@ -211,6 +259,7 @@ class ReezynMenuApp(rumps.App):
             self.skip_item,
             self.recent_menu,
             self.recap_item,
+            self.captions_menu,
             rumps.separator,
             voice_menu,
             pace_menu,
@@ -329,6 +378,7 @@ class ReezynMenuApp(rumps.App):
         else:
             # Captions should appear promptly even when the state is unchanged.
             self._refresh_recent()
+        self._refresh_captions(status)
 
         if self._download_error:
             message = self._download_error
@@ -426,6 +476,133 @@ class ReezynMenuApp(rumps.App):
             return
         for index, item in enumerate(self.recent_items):
             item.title = _shorten(recent[index], 64) if index < len(recent) else ""
+
+    def _refresh_captions(self, status: Any) -> None:
+        config = self.service.config.captions
+        overlay = self.caption_overlay
+        if config.enabled and overlay is None:
+            overlay = self._open_captions()
+        if overlay is not None:
+            if config.enabled and not overlay.visible:
+                # If the window cannot be built, switch the feature off rather
+                # than retrying on every tick.
+                if not overlay.show():
+                    config.enabled = False
+                    self._caption_error = overlay.error
+                    self.service.config.save(self.home)
+            elif not config.enabled and overlay.visible:
+                overlay.hide()
+            overlay.update(
+                status.current if status.speaking else "",
+                status.recent,
+                status.paused,
+            )
+        self.captions_toggle.state = 1 if config.enabled else 0
+        self.captions_collapse.state = 1 if config.collapsed else 0
+        self.captions_click.state = 1 if config.click_through else 0
+        font = min(
+            CAPTION_FONTS.items(), key=lambda pair: abs(pair[1] - config.font_size)
+        )[0]
+        for label, item in self.captions_size_items.items():
+            item.state = 1 if label == font else 0
+        opacity = min(
+            CAPTION_OPACITIES, key=lambda value: abs(value - config.opacity)
+        )
+        for value, item in self.captions_opacity_items.items():
+            item.state = 1 if value == opacity else 0
+        self.captions_hint.title = (
+            "⌥⌘H shows and hides"
+            if self._permissions.get("accessibility") == "authorized"
+            else "⌥⌘H needs Accessibility"
+        )
+
+    def _open_captions(self) -> CaptionOverlay | None:
+        if self.caption_overlay is not None:
+            return self.caption_overlay
+        try:
+            overlay = CaptionOverlay(
+                self.service.config.captions,
+                on_change=self._captions_changed,
+                on_pause=self.service.toggle_pause,
+                on_skip=self.service.skip,
+            )
+        except Exception as exc:
+            log.warning("could not create the caption viewer: %s", exc)
+            self._caption_error = str(exc)
+            return None
+        self.caption_overlay = overlay
+        return overlay
+
+    def _captions_changed(self) -> None:
+        self.service.config.save(self.home)
+        self._tick()
+
+    def _toggle_captions(self, _sender: Any = None) -> None:
+        config = self.service.config.captions
+        if config.enabled:
+            config.enabled = False
+            if self.caption_overlay is not None:
+                self.caption_overlay.hide()
+        else:
+            overlay = self._open_captions()
+            if overlay is None:
+                rumps.alert(
+                    title="CC viewer unavailable",
+                    message=self._caption_error
+                    or "The caption window could not be created.",
+                    ok="OK",
+                )
+                self._tick()
+                return
+            config.enabled = True
+            if not overlay.show():
+                config.enabled = False
+                rumps.alert(
+                    title="CC viewer unavailable",
+                    message=overlay.error or "The caption window could not be shown.",
+                    ok="OK",
+                )
+        self.service.config.save(self.home)
+        self._tick()
+
+    def _make_captions_opacity(self, value: float) -> Any:
+        def choose(_sender: Any = None) -> None:
+            if self.caption_overlay is not None:
+                self.caption_overlay.set_opacity(value)
+            else:
+                self.service.config.captions.opacity = value
+            self.service.config.save(self.home)
+            self._tick()
+
+        return choose
+
+    def _make_captions_font(self, size: float) -> Any:
+        def choose(_sender: Any = None) -> None:
+            config = self.service.config.captions
+            config.font_size = size
+            if self.caption_overlay is not None:
+                self.caption_overlay.refresh()
+            self.service.config.save(self.home)
+            self._tick()
+
+        return choose
+
+    def _toggle_captions_collapsed(self, _sender: Any = None) -> None:
+        config = self.service.config.captions
+        config.collapsed = not config.collapsed
+        if self.caption_overlay is not None:
+            self.caption_overlay.refresh()
+        self.service.config.save(self.home)
+        self._tick()
+
+    def _toggle_captions_click(self, _sender: Any = None) -> None:
+        if self.caption_overlay is not None:
+            self.caption_overlay.toggle_click_through()
+        else:
+            config = self.service.config.captions
+            config.click_through = not config.click_through
+            self.service.config.save(self.home)
+        self._tick()
 
     def _toggle_pause(self, _sender: Any = None) -> None:
         self.service.toggle_pause()
@@ -887,6 +1064,9 @@ class ReezynMenuApp(rumps.App):
         )
 
     def _quit(self, _sender: Any = None) -> None:
+        if self.caption_overlay is not None:
+            self.caption_overlay.close()
+            self.caption_overlay = None
         self.service.stop()
         rumps.quit_application()
 

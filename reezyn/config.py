@@ -38,6 +38,14 @@ AMBIENCE_LEVELS: dict[str, float] = {
     "Clear": 0.55,
 }
 
+CAPTION_FONTS: dict[str, float] = {
+    "Small": 15.0,
+    "Medium": 19.0,
+    "Large": 24.0,
+}
+
+CAPTION_OPACITIES: tuple[float, ...] = (0.45, 0.6, 0.75, 0.9, 1.0)
+
 
 def app_home() -> Path:
     """Return Reezyn's private state directory.
@@ -83,6 +91,15 @@ class BanterConfig:
 class AmbienceConfig:
     enabled: bool = False
     volume: float = 0.35
+
+
+@dataclass(slots=True)
+class CaptionsConfig:
+    enabled: bool = False
+    opacity: float = 0.9
+    font_size: float = 19.0
+    collapsed: bool = False
+    click_through: bool = False
 
 
 @dataclass(slots=True)
@@ -147,6 +164,7 @@ class Config:
     narration: NarrationConfig = field(default_factory=NarrationConfig)
     banter: BanterConfig = field(default_factory=BanterConfig)
     ambience: AmbienceConfig = field(default_factory=AmbienceConfig)
+    captions: CaptionsConfig = field(default_factory=CaptionsConfig)
     recall: RecallConfig = field(default_factory=RecallConfig)
     voice: VoiceConfig = field(default_factory=VoiceConfig)
     agents: AgentsConfig = field(default_factory=AgentsConfig)
@@ -165,6 +183,7 @@ class Config:
         b = self.banter
         a = self.agents
         m = self.ambience
+        c = self.captions
         r = self.recall
         v = self.voice
         remote = self.remote
@@ -199,6 +218,12 @@ class Config:
             "[ambience]\n"
             f"enabled = {str(m.enabled).lower()}\n"
             f"volume = {m.volume:.2f}\n\n"
+            "[captions]\n"
+            f"enabled = {str(c.enabled).lower()}\n"
+            f"opacity = {c.opacity:.2f}\n"
+            f"font_size = {c.font_size:.1f}\n"
+            f"collapsed = {str(c.collapsed).lower()}\n"
+            f"click_through = {str(c.click_through).lower()}\n\n"
             "[recall]\n"
             f"enabled = {str(r.enabled).lower()}\n"
             f"threshold = {r.threshold:.2f}\n"
@@ -259,6 +284,7 @@ def load_config(home: Path | None = None) -> Config:
     narration = _section(raw, "narration")
     banter = _section(raw, "banter")
     ambience = _section(raw, "ambience")
+    captions = _section(raw, "captions")
     recall = _section(raw, "recall")
     voice = _section(raw, "voice")
     agents = _section(raw, "agents")
@@ -291,6 +317,13 @@ def load_config(home: Path | None = None) -> Config:
         ambience=AmbienceConfig(
             enabled=_bool(ambience.get("enabled"), False),
             volume=_clamp_float(ambience.get("volume"), 0.0, 1.0, 0.35),
+        ),
+        captions=CaptionsConfig(
+            enabled=_bool(captions.get("enabled"), False),
+            opacity=_clamp_float(captions.get("opacity"), 0.3, 1.0, 0.9),
+            font_size=_clamp_float(captions.get("font_size"), 12.0, 30.0, 19.0),
+            collapsed=_bool(captions.get("collapsed"), False),
+            click_through=_bool(captions.get("click_through"), False),
         ),
         recall=RecallConfig(
             enabled=_bool(recall.get("enabled"), True),
