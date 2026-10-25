@@ -1,0 +1,13 @@
+{
+  "version": "0.2.1",
+  "channel": "stable",
+  "min_macos": "13.0",
+  "published_at": "2026-10-25T06:22:19Z",
+  "url": "https://reezyn.elastikmind.com/updates/Reezyn-0.2.1.zip",
+  "sha256": "47a9292f867ec4e912230ecdb20a2d841039732623cf8e7345fc54543d304314",
+  "size": 50286322,
+  "notes": [
+    "feat: update installed builds from a signed manifest",
+    "chore: stop committing release builds"
+  ]
+}
